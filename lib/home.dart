@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'TelaDados.dart';
-import 'loading_overlay.dart';
 
 class Home extends StatefulWidget {
   const Home({super.key});

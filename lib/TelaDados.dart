@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:ffi';
+import 'dart:core';
 import 'dart:ui';
 import 'package:dados_economicos/variables_class.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
@@ -12,7 +12,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
 import 'package:toggle_switch/toggle_switch.dart';
 import 'back_services.dart';
-import 'package:loading_animation_widget/loading_animation_widget.dart';
+import 'database_helper.dart';
+import 'package:permission_handler/permission_handler.dart';
+
 
 //const Map mapPrecos = {"433": "IPCA - % mensal","188": "INPC - % mensal"};
 //late Map mapEscolhido = {};
@@ -24,7 +26,10 @@ var ultimaDataIPCA;
 String? meuNumeroTeste;
 List<String> listaMostrar = <String>[];
 var fonte;
-
+var cod_serie;
+var initialIndex;
+List<Toggle_reg>? valorToggle;
+var isNotificationGranted;
 
 class TelaDados extends StatefulWidget {
   final String assuntoSerie;
@@ -38,20 +43,22 @@ Future<String> getStringFromLocalStorage(String key) async {
   return prefs.getString(key) ?? '';
 }
 
-var ultimaDataIPCA_nova;
+
 
 class _TelaDados extends State<TelaDados> {
 
   Future<String> getJsonFromRestAPI() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('numeroSerieSGS', urlSerie);
+    await prefs.setString('urlSerieArmaz', urlSerie);
+    await prefs.setString('fonteSerieArmaz', fonte);
+    await prefs.setInt("codigoArmaz", cod_serie);
     //String url = "https://api.bcb.gov.br/dados/serie/bcdata.sgs.433/dados?formato=json";
     String url = urlSerie;
     http.Response response = await http.get(Uri.parse(url));
     return response.body;
   }
 
-  List<serieSGS> chartData = [];
+  List<serie_app> chartData = [];
 
   DateTime startval1 = DateFormat('MM/yyyy').parse('01/2021');
   DateTime endval1 = DateFormat('MM/yyyy').parse('12/2021');
@@ -64,11 +71,12 @@ class _TelaDados extends State<TelaDados> {
     final jsonResponse = json.decode(jsonString);
     setState(() {
       for (Map<String, dynamic> i in jsonResponse){
-        chartData.add(serieSGS.fromJson(i));
+        chartData.add(serie_app.fromJson(i));
       }
       endval1 = chartData.last.data;
       startval1 = chartData[chartData.length-13].data;
     });
+    ultimaDataIPCA = chartData.last.data;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('dataFinal', endval1.toString());
   }
@@ -87,7 +95,7 @@ class _TelaDados extends State<TelaDados> {
         var y = item.values.toList()[i].toString();
         if(y!="..."){
           chartData.add(
-              serieSGS(
+              serie_app(
                   DateFormat('MM/yyyy').parse(x),
                   double.parse(y)
               )
@@ -95,14 +103,20 @@ class _TelaDados extends State<TelaDados> {
         }
       }
     });
+    endval1 = chartData.last.data;
+    startval1 = chartData[chartData.length-13].data;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('dataFinal', endval1.toString());
+    ultimaDataIPCA = chartData.last.data;
   }
 
-  List<serieSGS> itemsBetweenDates({
-    required List<serieSGS> lista,
+
+  List<serie_app> itemsBetweenDates({
+    required List<serie_app> lista,
     required DateTime start,
     required DateTime end,
   }) {
-    var output = <serieSGS>[];
+    var output = <serie_app>[];
     for (var i = 0; i < lista.length; i += 1) {
       DateTime date = lista[i].data;
       if (date.compareTo(start) >= 0 && date.compareTo(end) <= 0) {
@@ -112,57 +126,57 @@ class _TelaDados extends State<TelaDados> {
     return output;
   }
 
+
+  Future toggleDatabase() async {
+    valorToggle = await DatabaseHelper.getAllToggle();
+    initialIndex = valorToggle?.firstWhere((element) => element.id==cod_serie).valorToggle;
+    if(initialIndex!=null){
+      return initialIndex;
+    } else {
+      return Text("Erro");
+    }
+  }
+
+
   @override
   void initState() {
     // TODO: implement initState
     super.initState();
     if(widget.assuntoSerie=="Índice de preços"){
-      listaEscolhida = listaPrecos;
+      listaEscolhida = listaSeries;
     }
-    //Iterable values = listaEscolhida.where((element) => element['nome']);
     listaMostrar.clear();
- /*   for(final value in values) {
-      listaMostrar.add(value);
-    }*/
     for(var i = 0; i<listaEscolhida.length; i++) {
       listaMostrar.add(listaEscolhida[i].nome);
     }
     dropdownValue = listaMostrar.first;
     urlSerie = listaEscolhida.firstWhere((element) => element.nome==dropdownValue).urlAPI;
     fonte = listaEscolhida.firstWhere((element) => element.nome==dropdownValue).fonte;
+    cod_serie = listaEscolhida.firstWhere((element) => element.nome==dropdownValue).numero;
 
-
+    //LoadingOverlay.of(context).show();
     if(fonte=="SISTEMA GERENCIADOR DE SÉRIES TEMPORAIS (SGS). Banco Central do Brasil"){
       loadDataSGS();
     } else {
       loadDataIBGE();
     }
-
   }
 
-  var initialIndex = 0;
 
   @override
   Widget build(BuildContext context) {
 
-
     filtrarDados(){
-
       dateInputIni.text = DateFormat('MM/yyyy').format(startval1).toString();
       dateInputEnd.text = DateFormat('MM/yyyy').format(endval1).toString();
-
       DateTime dataIni = DateFormat('MM/yyyy').parse(dateInputIni.text.toString());
       DateTime dataFim = DateFormat('MM/yyyy').parse(dateInputEnd.text.toString());
-
       late var lista_filtrada = itemsBetweenDates(lista: chartData, start: dataIni, end: dataFim);
-
       lista_filtrada.sort((a, b){ //sorting in descending order
         return a.data.compareTo(b.data);
       });
       return lista_filtrada;
     }
-
-    var _category;
 
     return Scaffold(
         appBar: AppBar(
@@ -171,21 +185,6 @@ class _TelaDados extends State<TelaDados> {
         body: SingleChildScrollView(
             child: Stack(
               children: <Widget>[
-                Center(
-                  child: FutureBuilder(
-                      future: getJsonFromRestAPI(),
-                      builder: (ctx, snapshot) {
-                        if (snapshot.connectionState == ConnectionState.done) {
-                          return Text(
-                              ''
-                          );
-                        }
-                        else {
-                          return CircularProgressIndicator();
-                        }
-                      }
-                  ),
-                ),
                 Container(
                   padding: EdgeInsets.all(40),
                   child: Column(
@@ -212,6 +211,8 @@ class _TelaDados extends State<TelaDados> {
                                   dropdownValue = value!;
                                   urlSerie = listaEscolhida.firstWhere((element) => element.nome==dropdownValue).urlAPI;
                                   fonte = listaEscolhida.firstWhere((element) => element.nome==dropdownValue).fonte;
+                                  cod_serie = listaEscolhida.firstWhere((element) => element.nome==dropdownValue).numero;
+                                  initialIndex = valorToggle?.firstWhere((element) => element.id==cod_serie).valorToggle;
                                   chartData.clear();
                                   if(fonte=="SISTEMA GERENCIADOR DE SÉRIES TEMPORAIS (SGS). Banco Central do Brasil"){
                                     loadDataSGS();
@@ -230,26 +231,58 @@ class _TelaDados extends State<TelaDados> {
                         ),
 
                       ),
-                      ToggleSwitch(
-                        initialLabelIndex: initialIndex,
-                        totalSwitches: 2,
-                        labels: [
-                          'Não',
-                          'Sim',
-                        ],
-                        onToggle: (index) async {
-                          final service = FlutterBackgroundService();
-                          if(index==1){
-                            await initializeService();
-                            service.startService();
-                          } else {
-                            service.invoke("stopService");
+                      FutureBuilder(
+                          future: toggleDatabase(),
+                          builder: (ctx, snapshot) {
+                            if(snapshot.hasData){
+                              return ToggleSwitch(
+                                //initialLabelIndex: initialIndex,
+                                initialLabelIndex: initialIndex,
+                                totalSwitches: 2,
+                                labels: [
+                                  'Não',
+                                  'Sim',
+                                ],
+                                onToggle: (index) async {
+                                  if(isNotificationGranted==false){
+                                    //_dialogBuilder(ctx);
+                                    await Permission.notification.isDenied.then(
+                                          (value){
+                                        if(value){
+                                          Permission.notification.request();
+                                        }
+                                      },
+                                    );
+                                  }
+                                  var novoToggle = Toggle_reg(id: cod_serie, valorToggle: index, dataCompara: ultimaDataIPCA.toString());
+                                  void atualizarToggle() async {
+                                    await DatabaseHelper.updateToggle(novoToggle);
+                                  }
+                                  setState(() {
+                                    initialIndex = index!;
+                                    atualizarToggle();
+                                  });
+                                  print("valorToggle: $valorToggle");
+                                  final service1 = FlutterBackgroundService();
+                                  service1.invoke("stopService");
+                                  await initializeService1();
+                                  service1.startService();
+
+                                },
+
+                              );
+
+                            } else {
+                              return const CircularProgressIndicator();
+                            }
                           }
-                          setState(() {
-                            initialIndex = index!;
-                          });
-                        },
                       ),
+          /*            FutureBuilder(
+                          future: DatabaseHelper.updateToggle(Toggle_reg(id: cod_serie, valorToggle: initialIndex, dataCompara: ultimaDataIPCA.toString())),
+                          builder: (ctx, snapshot){
+                              return Text(valorToggle.toString());
+                          }
+                      ),*/
                       Text(
                         "Selecione o intervalo:",
                         style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
@@ -312,26 +345,53 @@ class _TelaDados extends State<TelaDados> {
                           style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                         ),
                       ),
-                      SfCartesianChart(
-                        margin: EdgeInsets.only(left: 5),
-                        primaryXAxis: CategoryAxis(
-                          axisLabelFormatter: (AxisLabelRenderDetails args) {
-                            late String text;
-                            text = DateFormat('MM/yy').format(DateTime.parse(args.text)).toString();
-                            return ChartAxisLabel(text, args.textStyle);
-                          },
-                        ),
-                        series: <ChartSeries<serieSGS, String>>[
-                          // Renders line chart
-                          LineSeries<serieSGS, String>(
-                              dataSource: filtrarDados(),
-                              xValueMapper: (serieSGS variavel, _) => variavel.data.toString(),
-                              yValueMapper: (serieSGS variavel, _) => variavel.valor,
-                              dataLabelMapper: (serieSGS data, _) => data.valor.toString().replaceAll(".", ","),
-                              dataLabelSettings: DataLabelSettings(isVisible: true,
-                                  textStyle: TextStyle(fontSize: 11)),
-                              markerSettings: MarkerSettings(isVisible: true)
+
+                      Stack(
+                        children: <Widget>[
+                          Center(child:
+                          SfCartesianChart(
+                            margin: EdgeInsets.only(left: 5),
+                            primaryXAxis: CategoryAxis(
+                              axisLabelFormatter: (AxisLabelRenderDetails args) {
+                                late String text;
+                                text = DateFormat('MM/yy').format(DateTime.parse(args.text)).toString();
+                                return ChartAxisLabel(text, args.textStyle);
+                              },
+                            ),
+                            series: <ChartSeries<serie_app, String>>[
+                              // Renders line chart
+                              LineSeries<serie_app, String>(
+                                  dataSource: filtrarDados(),
+                                  xValueMapper: (serie_app variavel, _) => variavel.data.toString(),
+                                  yValueMapper: (serie_app variavel, _) => variavel.valor,
+                                  dataLabelMapper: (serie_app data, _) => data.valor.toString().replaceAll(".", ","),
+                                  dataLabelSettings: DataLabelSettings(isVisible: true,
+                                      textStyle: TextStyle(fontSize: 11)),
+                                  markerSettings: MarkerSettings(isVisible: true)
+                              ),
+                            ]
                           ),
+                          ),
+                          Container(height: 250,
+                            alignment: AlignmentDirectional.bottomCenter,
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: <Widget>[
+                                FutureBuilder(
+                                    future: getJsonFromRestAPI(),
+                                    builder: (ctx, snapshot) {
+                                      if (snapshot.connectionState == ConnectionState.done) {
+                                        return Text(
+                                            ''
+                                        );
+                                      } else
+                                        return CircularProgressIndicator();
+                                    }
+                                ),
+                              ],
+                            ),
+                          )
                         ],
                       ),
                       Padding(
