@@ -30,6 +30,11 @@ var cod_serie;
 var initialIndex;
 List<Toggle_reg>? valorToggle;
 var isNotificationGranted;
+var nomeSerie;
+var formatoSerie;
+var codAssunto;
+var dataInicialSerie;
+var dataFinalSerie;
 
 class TelaDados extends StatefulWidget {
   final String assuntoSerie;
@@ -47,13 +52,13 @@ Future<String> getStringFromLocalStorage(String key) async {
 
 class _TelaDados extends State<TelaDados> {
 
-  Future<String> getJsonFromRestAPI() async {
+  Future<String> getJsonFromRestAPI(String url_serie) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('urlSerieArmaz', urlSerie);
     await prefs.setString('fonteSerieArmaz', fonte);
     await prefs.setInt("codigoArmaz", cod_serie);
     //String url = "https://api.bcb.gov.br/dados/serie/bcdata.sgs.433/dados?formato=json";
-    String url = urlSerie;
+    String url = url_serie;
     http.Response response = await http.get(Uri.parse(url));
     return response.body;
   }
@@ -67,7 +72,7 @@ class _TelaDados extends State<TelaDados> {
   TextEditingController dateInputIni = TextEditingController();
 
   Future loadDataSGS() async {
-    String jsonString = await getJsonFromRestAPI();
+    String jsonString = await getJsonFromRestAPI(urlSerie);
     final jsonResponse = json.decode(jsonString);
     setState(() {
       for (Map<String, dynamic> i in jsonResponse){
@@ -75,6 +80,11 @@ class _TelaDados extends State<TelaDados> {
       }
       endval1 = chartData.last.data;
       startval1 = chartData[chartData.length-13].data;
+      chartData.sort((a, b){ //sorting in descending order
+        return a.data.compareTo(b.data);
+      });
+      dataInicialSerie = DateFormat('MM/yyyy').format(chartData.first.data).toString();
+      dataFinalSerie = DateFormat('MM/yyyy').format(chartData.last.data).toString();
     });
     ultimaDataIPCA = chartData.last.data;
     final prefs = await SharedPreferences.getInstance();
@@ -85,7 +95,7 @@ class _TelaDados extends State<TelaDados> {
   NumberFormat formatter2 = new NumberFormat("0000");
 
   Future loadDataIBGE() async {
-    String jsonString = await getJsonFromRestAPI();
+    String jsonString = await getJsonFromRestAPI(urlSerie);
     final jsonResponse = json.decode(jsonString);
     final item = jsonResponse[0]['resultados'][0]['series'][0]['serie'];
     setState(() {
@@ -102,6 +112,11 @@ class _TelaDados extends State<TelaDados> {
           );
         }
       }
+      chartData.sort((a, b){ //sorting in descending order
+        return a.data.compareTo(b.data);
+      });
+      dataInicialSerie = DateFormat('MM/yyyy').format(chartData.first.data).toString();
+      dataFinalSerie = DateFormat('MM/yyyy').format(chartData.last.data).toString();
     });
     endval1 = chartData.last.data;
     startval1 = chartData[chartData.length-13].data;
@@ -142,9 +157,14 @@ class _TelaDados extends State<TelaDados> {
   void initState() {
     // TODO: implement initState
     super.initState();
-    if(widget.assuntoSerie=="Índice de preços"){
+/*    if(widget.assuntoSerie=="Índice de preços"){
       listaEscolhida = listaSeries;
-    }
+    }*/
+
+    codAssunto = listaAssunto.firstWhere((element) => element.nome==widget.assuntoSerie).id;
+
+    listaEscolhida = listaSeries.where((element) => element.idAssunto==codAssunto).toList();
+
     listaMostrar.clear();
     for(var i = 0; i<listaEscolhida.length; i++) {
       listaMostrar.add(listaEscolhida[i].nome);
@@ -153,7 +173,8 @@ class _TelaDados extends State<TelaDados> {
     urlSerie = listaEscolhida.firstWhere((element) => element.nome==dropdownValue).urlAPI;
     fonte = listaEscolhida.firstWhere((element) => element.nome==dropdownValue).fonte;
     cod_serie = listaEscolhida.firstWhere((element) => element.nome==dropdownValue).numero;
-
+    nomeSerie = listaEscolhida.firstWhere((element) => element.numero==cod_serie).nome;
+    formatoSerie = listaEscolhida.firstWhere((element) => element.numero==cod_serie).formato;
     //LoadingOverlay.of(context).show();
     if(fonte=="SISTEMA GERENCIADOR DE SÉRIES TEMPORAIS (SGS). Banco Central do Brasil"){
       loadDataSGS();
@@ -181,12 +202,13 @@ class _TelaDados extends State<TelaDados> {
     return Scaffold(
         appBar: AppBar(
           title: Text("$dropdownValue"),
+          backgroundColor: Colors.blue[100],
         ),
         body: SingleChildScrollView(
             child: Stack(
               children: <Widget>[
                 Container(
-                  padding: EdgeInsets.all(40),
+                  padding: EdgeInsets.all(20),
                   child: Column(
                     children: <Widget>[
                       Text(
@@ -194,49 +216,99 @@ class _TelaDados extends State<TelaDados> {
                         style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                       ),
                       Padding(
-                        padding: EdgeInsets.all(10),
-                        child: Center(
-                            child: DropdownButton<String>(
-                              value: dropdownValue,
-                              icon: const Icon(Icons.arrow_downward),
-                              elevation: 16,
-                              style: const TextStyle(color: Colors.deepPurple),
-                              underline: Container(
-                                height: 2,
-                                color: Colors.deepPurpleAccent,
-                              ),
-                              onChanged: (String? value) {
-                                // This is called when the user selects an item.
-                                setState(() {
-                                  dropdownValue = value!;
-                                  urlSerie = listaEscolhida.firstWhere((element) => element.nome==dropdownValue).urlAPI;
-                                  fonte = listaEscolhida.firstWhere((element) => element.nome==dropdownValue).fonte;
-                                  cod_serie = listaEscolhida.firstWhere((element) => element.nome==dropdownValue).numero;
-                                  initialIndex = valorToggle?.firstWhere((element) => element.id==cod_serie).valorToggle;
-                                  chartData.clear();
-                                  if(fonte=="SISTEMA GERENCIADOR DE SÉRIES TEMPORAIS (SGS). Banco Central do Brasil"){
-                                    loadDataSGS();
-                                  } else {
-                                    loadDataIBGE();
-                                  }
-                                });
-                              },
-                              items: listaMostrar.map<DropdownMenuItem<String>>((String value) {
-                                return DropdownMenuItem<String>(
-                                  value: value,
-                                  child: Text(value),
-                                );
-                              }).toList(),
-                            )
-                        ),
-
+                        padding: EdgeInsets.all(5),
+                          child: Row(
+                                  children: <Widget>[
+                                      Expanded(
+                                        child: Container(
+                                          height: 40,
+                                          width: 300,
+                                          decoration: BoxDecoration(
+                                              color: Colors.grey[200],
+                                              borderRadius: BorderRadius.circular(30), //border raiuds of dropdown button
+                                              boxShadow: <BoxShadow>[ //apply shadow on Dropdown button
+                                                BoxShadow(
+                                                    color: Color.fromRGBO(0, 0, 0, 0.57), //shadow for button
+                                                    blurRadius: 5) //blur radius of shadow
+                                              ]
+                                          ),
+                                            child: Center(
+                                      child: DropdownButton<String>(
+                                        value: dropdownValue,
+                                        icon: const Icon(Icons.arrow_downward),
+                                        elevation: 16,
+                                        style: const TextStyle(color: Colors.deepPurple, fontSize: 15),
+                                        focusColor: Colors.grey,
+                                        underline: Container(
+                                          height: 0,
+                                          color: Colors.deepPurpleAccent,
+                                        ),
+                                        onChanged: (String? value) {
+                                          // This is called when the user selects an item.
+                                          setState(() {
+                                            dropdownValue = value!;
+                                            urlSerie = listaEscolhida.firstWhere((element) => element.nome==dropdownValue).urlAPI;
+                                            fonte = listaEscolhida.firstWhere((element) => element.nome==dropdownValue).fonte;
+                                            cod_serie = listaEscolhida.firstWhere((element) => element.nome==dropdownValue).numero;
+                                            initialIndex = valorToggle?.firstWhere((element) => element.id==cod_serie).valorToggle;
+                                            nomeSerie = listaEscolhida.firstWhere((element) => element.numero==cod_serie).nome;
+                                            formatoSerie = listaEscolhida.firstWhere((element) => element.numero==cod_serie).formato;
+                                            chartData.clear();
+                                            if(fonte=="SISTEMA GERENCIADOR DE SÉRIES TEMPORAIS (SGS). Banco Central do Brasil"){
+                                              loadDataSGS();
+                                            } else {
+                                              loadDataIBGE();
+                                            }
+                                          });
+                                        },
+                                        items: listaMostrar.map<DropdownMenuItem<String>>((String value) {
+                                          return DropdownMenuItem<String>(
+                                            value: value,
+                                            child: Text(value),
+                                          );
+                                        }).toList(),
+                                      ),
+                                    )
+                                        ),
+                                      ),
+/*                                    Padding(padding: EdgeInsets.only(left: 30)),
+                                    Container(
+                                      child: ElevatedButton(
+                                          onPressed: (){
+                                            Navigator.push(
+                                                context,
+                                                MaterialPageRoute(builder: (context) => DescricaoSeries(cod_series: cod_serie,))
+                                            );
+                                          },
+                                          child: Text("?")),
+                                    )*/
+                                  ],
+                                ),
                       ),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.only(left: 32, right: 32, top: 15),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Text(
+                              "Deseja receber notificação quando esta série receber novos valores?",
+                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Padding(padding: EdgeInsets.only(top: 10)),
                       FutureBuilder(
                           future: toggleDatabase(),
                           builder: (ctx, snapshot) {
                             if(snapshot.hasData){
                               return ToggleSwitch(
                                 //initialLabelIndex: initialIndex,
+                                borderColor: <Color>[Colors.grey],
+                                borderWidth: 1,
+                                activeBgColor: <Color>[Colors.green.shade500],
+                                inactiveBgColor: Colors.white,
                                 initialLabelIndex: initialIndex,
                                 totalSwitches: 2,
                                 labels: [
@@ -267,9 +339,7 @@ class _TelaDados extends State<TelaDados> {
                                   service1.invoke("stopService");
                                   await initializeService1();
                                   service1.startService();
-
                                 },
-
                               );
 
                             } else {
@@ -277,12 +347,7 @@ class _TelaDados extends State<TelaDados> {
                             }
                           }
                       ),
-          /*            FutureBuilder(
-                          future: DatabaseHelper.updateToggle(Toggle_reg(id: cod_serie, valorToggle: initialIndex, dataCompara: ultimaDataIPCA.toString())),
-                          builder: (ctx, snapshot){
-                              return Text(valorToggle.toString());
-                          }
-                      ),*/
+                      Padding(padding: EdgeInsets.all(10)),
                       Text(
                         "Selecione o intervalo:",
                         style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
@@ -300,8 +365,8 @@ class _TelaDados extends State<TelaDados> {
                           DateTime? pickedDate = await showMonthPicker(
                               context: context,
                               initialDate: startval1,
-                              firstDate: DateFormat('MM/yyyy').parse("01/1980"),
-                              lastDate: DateFormat('MM/yyyy').parse("12/2100")
+                              firstDate: DateFormat('MM/yyyy').parse(dataInicialSerie),
+                              lastDate: DateFormat('MM/yyyy').parse(dataFinalSerie)
                           );
                           if (pickedDate != null) {
                             String formattedDate = DateFormat('MM/yyyy').format(pickedDate);
@@ -325,8 +390,8 @@ class _TelaDados extends State<TelaDados> {
                           DateTime? pickedDate = await showMonthPicker(
                               context: context,
                               initialDate: endval1,
-                              firstDate: DateFormat('MM/yyyy').parse("01/1980"),
-                              lastDate: DateFormat('MM/yyyy').parse("12/2100")
+                              firstDate: DateFormat('MM/yyyy').parse(dataInicialSerie),
+                              lastDate: DateFormat('MM/yyyy').parse(dataFinalSerie)
                           );
                           if (pickedDate != null) {
                             String formattedDate = DateFormat('MM/yyyy').format(pickedDate);
@@ -341,11 +406,10 @@ class _TelaDados extends State<TelaDados> {
                       Padding(
                         padding: EdgeInsets.only(top: 20, bottom: 10),
                         child: Text(
-                          "Gráfico",
+                          "Gráfico: $nomeSerie - $formatoSerie",
                           style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                         ),
                       ),
-
                       Stack(
                         children: <Widget>[
                           Center(child:
@@ -379,7 +443,7 @@ class _TelaDados extends State<TelaDados> {
                               crossAxisAlignment: CrossAxisAlignment.center,
                               children: <Widget>[
                                 FutureBuilder(
-                                    future: getJsonFromRestAPI(),
+                                    future: getJsonFromRestAPI(urlSerie),
                                     builder: (ctx, snapshot) {
                                       if (snapshot.connectionState == ConnectionState.done) {
                                         return Text(
@@ -397,7 +461,7 @@ class _TelaDados extends State<TelaDados> {
                       Padding(
                         padding: EdgeInsets.only(top: 0),
                         child: Text(
-                          "Fonte: BANCO CENTRAL DO BRASIL. Séries Temporais (SGS).",
+                          "Fonte: $fonte",
                           style: TextStyle(fontSize: 10),
                         ),
                       ),
@@ -427,7 +491,6 @@ class _TelaDados extends State<TelaDados> {
                               ),
                             ),
                           ),
-
                         ],
                         rows: filtrarDados()
                             .map(

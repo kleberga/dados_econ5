@@ -1,9 +1,19 @@
+import 'dart:convert';
+import 'package:dados_economicos/variables_class.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'TelaDados.dart';
 import 'back_services.dart';
 import 'database_helper.dart';
 import 'home.dart';
 import 'package:permission_handler/permission_handler.dart';
+
+List<cadastroSeries> listaIBGE = [];
+List<Metrica> listaMetrica = [];
+List<NivelGeografico> listaNivelGeografico = [];
+List<Localidades> listaLocalidades = [];
+List<Categorias> listaCategorias = [];
+var listaCombinada;
 
 void main() async {
   // inicializar uma instancia de WidgetsFlutterBinding. In the Flutter framework,
@@ -16,10 +26,12 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // função para preencher a tabela SQL com os dados das séries
   void preencherDados() async {
-    var fido = const Toggle_reg(id: 1, valorToggle: 0, dataCompara: '');
-    var fido2 = const Toggle_reg(id: 2, valorToggle: 0, dataCompara: '');
-    await DatabaseHelper.insertToggle(fido);
-    await DatabaseHelper.insertToggle(fido2);
+    for(var i = 0; i<listaSeries.length; i++){
+      var numeroSerie = listaSeries[i].numero;
+      var fido = Toggle_reg(id: numeroSerie, valorToggle: 0, dataCompara: '');
+      await DatabaseHelper.insertToggle(fido);
+    }
+
   }
   // chamar a função anterior
   preencherDados();
@@ -33,9 +45,45 @@ void main() async {
     },
   );
 
-  isNotificationGranted = await Permission.notification.isGranted;
+  Future<String> getJsonFromRestAPI(String url_serie) async {
+    String url = url_serie;
+    http.Response response = await http.get(Uri.parse(url));
+    return response.body;
+  }
 
-  print("isNotificationGranted: $isNotificationGranted");
+  Future loadDataIBGE() async {
+    String jsonString = await getJsonFromRestAPI("https://servicodados.ibge.gov.br/api/v3/agregados/7063/metadados");
+    final jsonResponse = json.decode(jsonString);
+    for(var i = 0; i<jsonResponse['variaveis'].length; i++){
+      listaMetrica.add(Metrica(id: jsonResponse['variaveis'][i]['id'], nome: jsonResponse['variaveis'][i]['nome']));
+    }
+    var urlSerie2 = jsonResponse['nivelTerritorial']['Administrativo'];
+    urlSerie2 = urlSerie2.join("|");
+
+    for(var i = 0; i<jsonResponse['classificacoes'][0]['categorias'].length; i++) {
+      listaCategorias.add(Categorias(id: jsonResponse['classificacoes'][0]['categorias'][i]['id'],
+          nome: jsonResponse['classificacoes'][0]['categorias'][i]['nome']));
+    }
+
+    String jsonString2 = await getJsonFromRestAPI("https://servicodados.ibge.gov.br/api/v3/agregados/7063/localidades/$urlSerie2");
+    final jsonResponse2 = json.decode(jsonString2);
+    // preencher a lista de nivel geografico
+    for(var i = 0; i<jsonResponse2.length; i++){
+      if(listaNivelGeografico.any((element) => element.id==jsonResponse2[i]['nivel']['id'])){
+        continue;
+      }
+        listaNivelGeografico.add(NivelGeografico(id: jsonResponse2[i]['nivel']['id'], nome: jsonResponse2[i]['nivel']['nome']));
+    }
+    // preencher a lista de localidades
+    for(var i = 0; i<jsonResponse2.length; i++){
+      listaLocalidades.add(Localidades(id: int.parse(jsonResponse2[i]['id']), nome: jsonResponse2[i]['nome'], nivelGeografico: jsonResponse2[i]['nivel']['id']));
+    }
+  }
+
+
+  loadDataIBGE();
+
+  isNotificationGranted = await Permission.notification.isGranted;
 
 
   runApp(MaterialApp(

@@ -13,6 +13,7 @@ class _HomeState extends State<Home> {
     return Scaffold(
       appBar: AppBar(
         title: Text("Escolha o assunto"),
+        backgroundColor: Colors.blue[100],
       ),
       body: Container(
           child: Column(
@@ -20,9 +21,23 @@ class _HomeState extends State<Home> {
               Padding(
                 padding: EdgeInsets.all(10),
                 child: Center(
-                  child: ElevatedButton(
+                  child:
+                  Container(
+                    height: 40,
+                    width: 250,
+                    decoration: BoxDecoration(
+                        color: Colors.grey[200],
+                        borderRadius: BorderRadius.circular(30), //border raiuds of dropdown button
+                        boxShadow: <BoxShadow>[ //apply shadow on Dropdown button
+                          BoxShadow(
+                              color: Color.fromRGBO(0, 0, 0, 0.57), //shadow for button
+                              blurRadius: 5) //blur radius of shadow
+                        ]
+                    ),
+                    child: ElevatedButton(
                       style: ButtonStyle(
-                          fixedSize: MaterialStateProperty.all(Size(200, 40))
+                          fixedSize: MaterialStateProperty.all(Size(200, 40)),
+                        backgroundColor: MaterialStateProperty.all(Colors.grey[200]),
                       ),
                       onPressed: (){
                         Navigator.push(
@@ -32,9 +47,10 @@ class _HomeState extends State<Home> {
                             )
                         );
                       },
-                      child: Text("Índices de preços")
+                      child: Text("Índices de preços", style: TextStyle(fontSize: 16),)
                   ),
                 ),
+              )
               )
             ],
           ),
