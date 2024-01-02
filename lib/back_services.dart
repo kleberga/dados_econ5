@@ -108,7 +108,7 @@ Future loadDataIBGE2() async {
     var x = item.keys.toList()[i];
     x = formatter1.format(int.parse(x.substring(4))) + "/" + formatter2.format(int.parse(x.substring(0, 4)));
     var y = item.values.toList()[i].toString();
-    if(y!="..."){
+    if(y!="..."||y!="-"){
       listaBack.add(
           serie_app(
               DateFormat('MM/yyyy').parse(x),

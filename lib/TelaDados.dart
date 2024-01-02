@@ -15,16 +15,26 @@ import 'back_services.dart';
 import 'database_helper.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import 'descricao_series.dart';
+
 
 //const Map mapPrecos = {"433": "IPCA - % mensal","188": "INPC - % mensal"};
 //late Map mapEscolhido = {};
 late List listaEscolhida = [];
 String dropdownValue = "";
+String dropdownValueMetrica = "";
+String dropdownValueNivelGeog = "";
+String dropdownValueLocalidade = "";
+String dropdownValueCategoria = "";
 String urlSerie = '';
 var service;
 var ultimaDataIPCA;
 String? meuNumeroTeste;
-List<String> listaMostrar = <String>[];
+List<String> listaMostrar = [];
+List<String> listaMostrarMetrica = [];
+List<String> listaMostrarNivelGeog = [];
+List<String> listaMostrarLocalidade = [];
+List<String> listaMostrarCategoria = [];
 var fonte;
 var cod_serie;
 var initialIndex;
@@ -35,6 +45,7 @@ var formatoSerie;
 var codAssunto;
 var dataInicialSerie;
 var dataFinalSerie;
+var metricaValue;
 
 class TelaDados extends StatefulWidget {
   final String assuntoSerie;
@@ -103,7 +114,7 @@ class _TelaDados extends State<TelaDados> {
         var x = item.keys.toList()[i];
         x = formatter1.format(int.parse(x.substring(4))) + "/" + formatter2.format(int.parse(x.substring(0, 4)));
         var y = item.values.toList()[i].toString();
-        if(y!="..."){
+        if(y!="..."&&y!="-"){
           chartData.add(
               serie_app(
                   DateFormat('MM/yyyy').parse(x),
@@ -160,29 +171,66 @@ class _TelaDados extends State<TelaDados> {
 /*    if(widget.assuntoSerie=="Índice de preços"){
       listaEscolhida = listaSeries;
     }*/
-
+    // filtrar o codigo do assunto
     codAssunto = listaAssunto.firstWhere((element) => element.nome==widget.assuntoSerie).id;
-
+    // escolher as series que pertencem ao assunto escolhido
     listaEscolhida = listaSeries.where((element) => element.idAssunto==codAssunto).toList();
-
-    listaMostrar.clear();
-    for(var i = 0; i<listaEscolhida.length; i++) {
+    // limpar a lista para evitar duplicidade quando a tela for recarregada
+    // criar a lista
+/*    for(var i = 0; i<listaEscolhida.length; i++) {
+      if(listaEscolhida.any((element) => element==listaEscolhida[i].nome)){
+        continue;
+      }
       listaMostrar.add(listaEscolhida[i].nome);
-    }
+    }*/
+
+
+    listaMostrar = listaEscolhida.map((element) => element.nome.toString()).toList().toSet().toList();
     dropdownValue = listaMostrar.first;
-    urlSerie = listaEscolhida.firstWhere((element) => element.nome==dropdownValue).urlAPI;
-    fonte = listaEscolhida.firstWhere((element) => element.nome==dropdownValue).fonte;
-    cod_serie = listaEscolhida.firstWhere((element) => element.nome==dropdownValue).numero;
-    nomeSerie = listaEscolhida.firstWhere((element) => element.numero==cod_serie).nome;
-    formatoSerie = listaEscolhida.firstWhere((element) => element.numero==cod_serie).formato;
-    //LoadingOverlay.of(context).show();
-    if(fonte=="SISTEMA GERENCIADOR DE SÉRIES TEMPORAIS (SGS). Banco Central do Brasil"){
+
+    listaMostrarMetrica = listaEscolhida.where((element) => element.nome==dropdownValue).map((e) => e.metrica.toString()).toSet().toList();
+    dropdownValueMetrica = listaMostrarMetrica.first;
+
+    listaMostrarNivelGeog = listaEscolhida.where((element) => element.nome==dropdownValue &&
+    element.metrica==dropdownValueMetrica).map((e) => e.nivelGeografico.toString()).toSet().toList();
+    dropdownValueNivelGeog = listaMostrarNivelGeog.first;
+
+    listaMostrarLocalidade = listaEscolhida.where((element) => element.nome==dropdownValue &&
+        element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog).map((e) => e.localidades.toString()).toSet().toList();
+    dropdownValueLocalidade = listaMostrarLocalidade.first;
+
+    listaMostrarCategoria = listaEscolhida.where((element) => element.nome==dropdownValue &&
+        element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog &&
+    element.localidades==dropdownValueLocalidade).map((e) => e.categoria.toString()).toSet().toList();
+    dropdownValueCategoria = listaMostrarCategoria.first;
+
+    urlSerie = listaEscolhida.firstWhere((element) => element.nome==dropdownValue &&
+        element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog &&
+        element.localidades==dropdownValueLocalidade && element.categoria==dropdownValueCategoria).urlAPI;
+
+    fonte = listaEscolhida.firstWhere((element) => element.nome==dropdownValue &&
+        element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog &&
+        element.localidades==dropdownValueLocalidade && element.categoria==dropdownValueCategoria).fonte;
+
+    cod_serie = listaEscolhida.firstWhere((element) => element.nome==dropdownValue &&
+        element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog &&
+        element.localidades==dropdownValueLocalidade && element.categoria==dropdownValueCategoria).numero;
+
+    nomeSerie = listaEscolhida.firstWhere((element) => element.nome==dropdownValue &&
+        element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog &&
+        element.localidades==dropdownValueLocalidade && element.categoria==dropdownValueCategoria).nome;
+
+    formatoSerie = listaEscolhida.firstWhere((element) => element.nome==dropdownValue &&
+        element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog &&
+        element.localidades==dropdownValueLocalidade && element.categoria==dropdownValueCategoria).formato;
+
+    chartData.clear();
+    if(fonte=="Banco Central do Brasil"){
       loadDataSGS();
     } else {
       loadDataIBGE();
     }
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -201,7 +249,7 @@ class _TelaDados extends State<TelaDados> {
 
     return Scaffold(
         appBar: AppBar(
-          title: Text("$dropdownValue"),
+          title: Text("Visualize os dados"),
           backgroundColor: Colors.blue[100],
         ),
         body: SingleChildScrollView(
@@ -215,75 +263,382 @@ class _TelaDados extends State<TelaDados> {
                         "Selecione a série:",
                         style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                       ),
-                      Padding(
-                        padding: EdgeInsets.all(5),
-                          child: Row(
-                                  children: <Widget>[
-                                      Expanded(
-                                        child: Container(
-                                          height: 40,
-                                          width: 300,
-                                          decoration: BoxDecoration(
-                                              color: Colors.grey[200],
-                                              borderRadius: BorderRadius.circular(30), //border raiuds of dropdown button
-                                              boxShadow: <BoxShadow>[ //apply shadow on Dropdown button
-                                                BoxShadow(
-                                                    color: Color.fromRGBO(0, 0, 0, 0.57), //shadow for button
-                                                    blurRadius: 5) //blur radius of shadow
-                                              ]
-                                          ),
-                                            child: Center(
-                                      child: DropdownButton<String>(
-                                        value: dropdownValue,
-                                        icon: const Icon(Icons.arrow_downward),
-                                        elevation: 16,
-                                        style: const TextStyle(color: Colors.deepPurple, fontSize: 15),
-                                        focusColor: Colors.grey,
-                                        underline: Container(
-                                          height: 0,
-                                          color: Colors.deepPurpleAccent,
+                      Padding(padding: EdgeInsets.only(bottom: 5)),
+                      Row(
+                        children: <Widget>[
+                          Expanded(
+                            child: Container(
+                                height: 40,
+                                width: 200,
+                                decoration: BoxDecoration(
+                                    color: Colors.grey[200],
+                                    borderRadius: BorderRadius.circular(30), //border raiuds of dropdown button
+                                    boxShadow: <BoxShadow>[ //apply shadow on Dropdown button
+                                      BoxShadow(
+                                          color: Color.fromRGBO(0, 0, 0, 0.57), //shadow for button
+                                          blurRadius: 5) //blur radius of shadow
+                                    ]
+                                ),
+                                child: Center(
+                                  child: DropdownButton<String>(
+                                    value: dropdownValue,
+                                    icon: const Icon(Icons.arrow_downward),
+                                    elevation: 16,
+                                    style: const TextStyle(color: Colors.deepPurple, fontSize: 15),
+                                    focusColor: Colors.grey,
+                                    underline: Container(
+                                      height: 0,
+                                      color: Colors.deepPurpleAccent,
+                                    ),
+                                    onChanged: (String? value) {
+                                      // This is called when the user selects an item.
+                                      setState(() {
+                                        dropdownValue = value!;
+                                        listaMostrarMetrica = listaEscolhida.where((element) => element.nome==dropdownValue).map((e) => e.metrica.toString()).toSet().toList();
+                                        dropdownValueMetrica = listaMostrarMetrica.first;
+                                        listaMostrarNivelGeog = listaEscolhida.where((element) => element.nome==dropdownValue &&
+                                            element.metrica==dropdownValueMetrica).map((e) => e.nivelGeografico.toString()).toSet().toList();
+                                        dropdownValueNivelGeog = listaMostrarNivelGeog.first;
+                                        listaMostrarLocalidade = listaEscolhida.where((element) => element.nome==dropdownValue &&
+                                            element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog).map((e) => e.localidades.toString()).toSet().toList();
+                                        dropdownValueLocalidade = listaMostrarLocalidade.first;
+                                        listaMostrarCategoria = listaEscolhida.where((element) => element.nome==dropdownValue &&
+                                            element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog &&
+                                            element.localidades==dropdownValueLocalidade).map((e) => e.categoria.toString()).toSet().toList();
+                                        dropdownValueCategoria = listaMostrarCategoria.first;
+                                        urlSerie = listaEscolhida.firstWhere((element) => element.nome==dropdownValue &&
+                                            element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog &&
+                                            element.localidades==dropdownValueLocalidade && element.categoria==dropdownValueCategoria).urlAPI;
+                                        fonte = listaEscolhida.firstWhere((element) => element.nome==dropdownValue &&
+                                            element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog &&
+                                            element.localidades==dropdownValueLocalidade && element.categoria==dropdownValueCategoria).fonte;
+                                        cod_serie = listaEscolhida.firstWhere((element) => element.nome==dropdownValue &&
+                                            element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog &&
+                                            element.localidades==dropdownValueLocalidade && element.categoria==dropdownValueCategoria).numero;
+                                        initialIndex = valorToggle?.firstWhere((element) => element.id==cod_serie).valorToggle;
+                                        nomeSerie = listaEscolhida.firstWhere((element) => element.nome==dropdownValue &&
+                                            element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog &&
+                                            element.localidades==dropdownValueLocalidade && element.categoria==dropdownValueCategoria).nome;
+                                        formatoSerie = listaEscolhida.firstWhere((element) => element.nome==dropdownValue &&
+                                            element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog &&
+                                            element.localidades==dropdownValueLocalidade && element.categoria==dropdownValueCategoria).formato;
+                                        chartData.clear();
+                                        if(fonte=="Banco Central do Brasil"){
+                                          loadDataSGS();
+                                        } else {
+                                          loadDataIBGE();
+                                        }
+                                      });
+                                    },
+                                    items: listaMostrar.map<DropdownMenuItem<String>>((String value) {
+                                      return DropdownMenuItem<String>(
+                                        value: value,
+                                        child: Center(
+                                          child: Text(value),
                                         ),
-                                        onChanged: (String? value) {
-                                          // This is called when the user selects an item.
+                                      );
+                                    }).toList(),
+                                  ),
+                                )
+                            ),
+                          ),
+                        ],
+                      ),
+                      Padding(padding: EdgeInsets.only(top: 10)),
+                      Text(
+                        "Selecione a métrica:",
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                      Padding(padding: EdgeInsets.only(bottom: 5)),
+                      Container(
+                            height: 40,
+                            width: 400,
+                            decoration: BoxDecoration(
+                                color: Colors.grey[200],
+                                borderRadius: BorderRadius.circular(30), //border raiuds of dropdown button
+                                boxShadow: <BoxShadow>[ //apply shadow on Dropdown button
+                                  BoxShadow(
+                                      color: Color.fromRGBO(0, 0, 0, 0.57), //shadow for button
+                                      blurRadius: 5) //blur radius of shadow
+                                ]
+                            ),
+                            child: Center(
+                              child: DropdownButton<String>(
+                                value: dropdownValueMetrica,
+                                icon: const Icon(Icons.arrow_downward),
+                                elevation: 16,
+                                style: const TextStyle(color: Colors.deepPurple, fontSize: 15),
+                                focusColor: Colors.grey,
+                                underline: Container(
+                                  height: 0,
+                                  color: Colors.deepPurpleAccent,
+                                ),
+                                onChanged: (String? value) {
+                                  // This is called when the user selects an item.
                                           setState(() {
-                                            dropdownValue = value!;
-                                            urlSerie = listaEscolhida.firstWhere((element) => element.nome==dropdownValue).urlAPI;
-                                            fonte = listaEscolhida.firstWhere((element) => element.nome==dropdownValue).fonte;
-                                            cod_serie = listaEscolhida.firstWhere((element) => element.nome==dropdownValue).numero;
+                                            dropdownValueMetrica = value!;
+                                            listaMostrarNivelGeog = listaEscolhida.where((element) => element.nome==dropdownValue &&
+                                                element.metrica==dropdownValueMetrica).map((e) => e.nivelGeografico.toString()).toSet().toList();
+                                            dropdownValueNivelGeog = listaMostrarNivelGeog.first;
+                                            listaMostrarLocalidade = listaEscolhida.where((element) => element.nome==dropdownValue &&
+                                                element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog).map((e) => e.localidades.toString()).toSet().toList();
+                                            dropdownValueLocalidade = listaMostrarLocalidade.first;
+                                            listaMostrarCategoria = listaEscolhida.where((element) => element.nome==dropdownValue &&
+                                                element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog &&
+                                                element.localidades==dropdownValueLocalidade).map((e) => e.categoria.toString()).toSet().toList();
+                                            dropdownValueCategoria = listaMostrarCategoria.first;
+                                            urlSerie = listaEscolhida.firstWhere((element) => element.nome==dropdownValue &&
+                                                element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog &&
+                                                element.localidades==dropdownValueLocalidade && element.categoria==dropdownValueCategoria).urlAPI;
+                                            fonte = listaEscolhida.firstWhere((element) => element.nome==dropdownValue &&
+                                                element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog &&
+                                                element.localidades==dropdownValueLocalidade && element.categoria==dropdownValueCategoria).fonte;
+                                            cod_serie = listaEscolhida.firstWhere((element) => element.nome==dropdownValue &&
+                                                element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog &&
+                                                element.localidades==dropdownValueLocalidade && element.categoria==dropdownValueCategoria).numero;
                                             initialIndex = valorToggle?.firstWhere((element) => element.id==cod_serie).valorToggle;
-                                            nomeSerie = listaEscolhida.firstWhere((element) => element.numero==cod_serie).nome;
-                                            formatoSerie = listaEscolhida.firstWhere((element) => element.numero==cod_serie).formato;
+                                            nomeSerie = listaEscolhida.firstWhere((element) => element.nome==dropdownValue &&
+                                                element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog &&
+                                                element.localidades==dropdownValueLocalidade && element.categoria==dropdownValueCategoria).nome;
+                                            formatoSerie = listaEscolhida.firstWhere((element) => element.nome==dropdownValue &&
+                                                element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog &&
+                                                element.localidades==dropdownValueLocalidade && element.categoria==dropdownValueCategoria).formato;
                                             chartData.clear();
-                                            if(fonte=="SISTEMA GERENCIADOR DE SÉRIES TEMPORAIS (SGS). Banco Central do Brasil"){
+                                            if(fonte=="Banco Central do Brasil"){
                                               loadDataSGS();
                                             } else {
                                               loadDataIBGE();
                                             }
                                           });
-                                        },
-                                        items: listaMostrar.map<DropdownMenuItem<String>>((String value) {
-                                          return DropdownMenuItem<String>(
-                                            value: value,
-                                            child: Text(value),
-                                          );
-                                        }).toList(),
-                                      ),
-                                    )
-                                        ),
-                                      ),
-/*                                    Padding(padding: EdgeInsets.only(left: 30)),
-                                    Container(
-                                      child: ElevatedButton(
-                                          onPressed: (){
-                                            Navigator.push(
-                                                context,
-                                                MaterialPageRoute(builder: (context) => DescricaoSeries(cod_series: cod_serie,))
-                                            );
-                                          },
-                                          child: Text("?")),
-                                    )*/
-                                  ],
-                                ),
+                                },
+                                items: listaMostrarMetrica.map<DropdownMenuItem<String>>((String value) {
+                                  return DropdownMenuItem<String>(
+                                    value: value,
+                                    child: Center(
+                                      child: Text(value),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            )
+                        ),
+                      Padding(padding: EdgeInsets.only(top: 10)),
+                      Text(
+                        "Selecione o nível geográfico:",
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                      Padding(padding: EdgeInsets.only(bottom: 5)),
+                      Container(
+                          height: 40,
+                          width: 400,
+                          decoration: BoxDecoration(
+                              color: Colors.grey[200],
+                              borderRadius: BorderRadius.circular(30), //border raiuds of dropdown button
+                              boxShadow: <BoxShadow>[ //apply shadow on Dropdown button
+                                BoxShadow(
+                                    color: Color.fromRGBO(0, 0, 0, 0.57), //shadow for button
+                                    blurRadius: 5) //blur radius of shadow
+                              ]
+                          ),
+                          child: Center(
+                            child: DropdownButton<String>(
+                              value: dropdownValueNivelGeog,
+                              icon: const Icon(Icons.arrow_downward),
+                              elevation: 16,
+                              style: const TextStyle(color: Colors.deepPurple, fontSize: 15),
+                              focusColor: Colors.grey,
+                              underline: Container(
+                                height: 0,
+                                color: Colors.deepPurpleAccent,
+                              ),
+                              onChanged: (String? value) {
+                                // This is called when the user selects an item.
+                                          setState(() {
+                                            dropdownValueNivelGeog = value!;
+                                            listaMostrarLocalidade = listaEscolhida.where((element) => element.nome==dropdownValue &&
+                                                element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog).map((e) => e.localidades.toString()).toSet().toList();
+                                            dropdownValueLocalidade = listaMostrarLocalidade.first;
+                                            listaMostrarCategoria = listaEscolhida.where((element) => element.nome==dropdownValue &&
+                                                element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog &&
+                                                element.localidades==dropdownValueLocalidade).map((e) => e.categoria.toString()).toSet().toList();
+                                            dropdownValueCategoria = listaMostrarCategoria.first;
+                                            urlSerie = listaEscolhida.firstWhere((element) => element.nome==dropdownValue &&
+                                                element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog &&
+                                                element.localidades==dropdownValueLocalidade && element.categoria==dropdownValueCategoria).urlAPI;
+                                            fonte = listaEscolhida.firstWhere((element) => element.nome==dropdownValue &&
+                                                element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog &&
+                                                element.localidades==dropdownValueLocalidade && element.categoria==dropdownValueCategoria).fonte;
+                                            cod_serie = listaEscolhida.firstWhere((element) => element.nome==dropdownValue &&
+                                                element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog &&
+                                                element.localidades==dropdownValueLocalidade && element.categoria==dropdownValueCategoria).numero;
+                                            initialIndex = valorToggle?.firstWhere((element) => element.id==cod_serie).valorToggle;
+                                            nomeSerie = listaEscolhida.firstWhere((element) => element.nome==dropdownValue &&
+                                                element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog &&
+                                                element.localidades==dropdownValueLocalidade && element.categoria==dropdownValueCategoria).nome;
+                                            formatoSerie = listaEscolhida.firstWhere((element) => element.nome==dropdownValue &&
+                                                element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog &&
+                                                element.localidades==dropdownValueLocalidade && element.categoria==dropdownValueCategoria).formato;
+                                            chartData.clear();
+                                            if(fonte=="Banco Central do Brasil"){
+                                              loadDataSGS();
+                                            } else {
+                                              loadDataIBGE();
+                                            }
+                                          });
+                              },
+                              items: listaMostrarNivelGeog.map<DropdownMenuItem<String>>((String value) {
+                                return DropdownMenuItem<String>(
+                                  value: value,
+                                  child: Center(
+                                    child: Text(value),
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          )
+                      ),
+                      Padding(padding: EdgeInsets.only(top: 10)),
+                      Text(
+                        "Selecione a localidade:",
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                      Padding(padding: EdgeInsets.only(bottom: 5)),
+                      Container(
+                          height: 40,
+                          width: 400,
+                          decoration: BoxDecoration(
+                              color: Colors.grey[200],
+                              borderRadius: BorderRadius.circular(30), //border raiuds of dropdown button
+                              boxShadow: <BoxShadow>[ //apply shadow on Dropdown button
+                                BoxShadow(
+                                    color: Color.fromRGBO(0, 0, 0, 0.57), //shadow for button
+                                    blurRadius: 5) //blur radius of shadow
+                              ]
+                          ),
+                          child: Center(
+                            child: DropdownButton<String>(
+                              value: dropdownValueLocalidade,
+                              icon: const Icon(Icons.arrow_downward),
+                              elevation: 16,
+                              style: const TextStyle(color: Colors.deepPurple, fontSize: 15),
+                              focusColor: Colors.grey,
+                              underline: Container(
+                                height: 0,
+                                color: Colors.deepPurpleAccent,
+                              ),
+                              onChanged: (String? value) {
+                                // This is called when the user selects an item.
+                                          setState(() {
+                                            dropdownValueLocalidade = value!;
+                                            listaMostrarCategoria = listaEscolhida.where((element) => element.nome==dropdownValue &&
+                                                element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog &&
+                                                element.localidades==dropdownValueLocalidade).map((e) => e.categoria.toString()).toSet().toList();
+                                            dropdownValueCategoria = listaMostrarCategoria.first;
+                                            urlSerie = listaEscolhida.firstWhere((element) => element.nome==dropdownValue &&
+                                                element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog &&
+                                                element.localidades==dropdownValueLocalidade && element.categoria==dropdownValueCategoria).urlAPI;
+                                            fonte = listaEscolhida.firstWhere((element) => element.nome==dropdownValue &&
+                                                element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog &&
+                                                element.localidades==dropdownValueLocalidade && element.categoria==dropdownValueCategoria).fonte;
+                                            cod_serie = listaEscolhida.firstWhere((element) => element.nome==dropdownValue &&
+                                                element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog &&
+                                                element.localidades==dropdownValueLocalidade && element.categoria==dropdownValueCategoria).numero;
+                                            initialIndex = valorToggle?.firstWhere((element) => element.id==cod_serie).valorToggle;
+                                            nomeSerie = listaEscolhida.firstWhere((element) => element.nome==dropdownValue &&
+                                                element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog &&
+                                                element.localidades==dropdownValueLocalidade && element.categoria==dropdownValueCategoria).nome;
+                                            formatoSerie = listaEscolhida.firstWhere((element) => element.nome==dropdownValue &&
+                                                element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog &&
+                                                element.localidades==dropdownValueLocalidade && element.categoria==dropdownValueCategoria).formato;
+                                            chartData.clear();
+                                            if(fonte=="Banco Central do Brasil"){
+                                              loadDataSGS();
+                                            } else {
+                                              loadDataIBGE();
+                                            }
+                                          });
+                              },
+                              items: listaMostrarLocalidade.map<DropdownMenuItem<String>>((String value) {
+                                return DropdownMenuItem<String>(
+                                  value: value,
+                                  child: Center(
+                                    child: Text(value),
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          )
+                      ),
+                      Padding(padding: EdgeInsets.only(top: 10)),
+                      Text(
+                        "Selecione o grupo:",
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                      Padding(padding: EdgeInsets.only(bottom: 5)),
+                      Container(
+                          height: 40,
+                          width: 400,
+                          decoration: BoxDecoration(
+                              color: Colors.grey[200],
+                              borderRadius: BorderRadius.circular(30), //border raiuds of dropdown button
+                              boxShadow: <BoxShadow>[ //apply shadow on Dropdown button
+                                BoxShadow(
+                                    color: Color.fromRGBO(0, 0, 0, 0.57), //shadow for button
+                                    blurRadius: 5) //blur radius of shadow
+                              ]
+                          ),
+                          child: Center(
+                            child: DropdownButton<String>(
+                              isExpanded: true,
+                              value: dropdownValueCategoria,
+                              icon: const Icon(Icons.arrow_downward),
+                              elevation: 16,
+                              style: const TextStyle(color: Colors.deepPurple, fontSize: 15),
+                              focusColor: Colors.grey,
+                              underline: Container(
+                                height: 0,
+                                color: Colors.deepPurpleAccent,
+                              ),
+                              onChanged: (String? value) {
+                                // This is called when the user selects an item.
+                                          setState(() {
+                                            dropdownValueCategoria = value!;
+                                            urlSerie = listaEscolhida.firstWhere((element) => element.nome==dropdownValue &&
+                                                element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog &&
+                                                element.localidades==dropdownValueLocalidade && element.categoria==dropdownValueCategoria).urlAPI;
+                                            fonte = listaEscolhida.firstWhere((element) => element.nome==dropdownValue &&
+                                                element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog &&
+                                                element.localidades==dropdownValueLocalidade && element.categoria==dropdownValueCategoria).fonte;
+                                            cod_serie = listaEscolhida.firstWhere((element) => element.nome==dropdownValue &&
+                                                element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog &&
+                                                element.localidades==dropdownValueLocalidade && element.categoria==dropdownValueCategoria).numero;
+                                            initialIndex = valorToggle?.firstWhere((element) => element.id==cod_serie).valorToggle;
+                                            nomeSerie = listaEscolhida.firstWhere((element) => element.nome==dropdownValue &&
+                                                element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog &&
+                                                element.localidades==dropdownValueLocalidade && element.categoria==dropdownValueCategoria).nome;
+                                            formatoSerie = listaEscolhida.firstWhere((element) => element.nome==dropdownValue &&
+                                                element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog &&
+                                                element.localidades==dropdownValueLocalidade && element.categoria==dropdownValueCategoria).formato;
+                                            chartData.clear();
+                                            if(fonte=="Banco Central do Brasil"){
+                                              loadDataSGS();
+                                            } else {
+                                              loadDataIBGE();
+                                            }
+                                          });
+                              },
+                              items: listaMostrarCategoria.map<DropdownMenuItem<String>>((String value) {
+                                return DropdownMenuItem<String>(
+                                  value: value,
+                                  child: Center(
+                                    child: Center(
+                                      child: Text(value.toLowerCase()),
+                                    ),
+                                  )
+                                );
+                              }).toList(),
+                            ),
+                          )
                       ),
                       Container(
                         width: double.infinity,
@@ -341,7 +696,6 @@ class _TelaDados extends State<TelaDados> {
                                   service1.startService();
                                 },
                               );
-
                             } else {
                               return const CircularProgressIndicator();
                             }
@@ -406,7 +760,7 @@ class _TelaDados extends State<TelaDados> {
                       Padding(
                         padding: EdgeInsets.only(top: 20, bottom: 10),
                         child: Text(
-                          "Gráfico: $nomeSerie - $formatoSerie",
+                          "Gráfico: $nomeSerie - $dropdownValueLocalidade - ${dropdownValueCategoria.toLowerCase()} - $formatoSerie",
                           style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                         ),
                       ),
@@ -428,7 +782,7 @@ class _TelaDados extends State<TelaDados> {
                                   dataSource: filtrarDados(),
                                   xValueMapper: (serie_app variavel, _) => variavel.data.toString(),
                                   yValueMapper: (serie_app variavel, _) => variavel.valor,
-                                  dataLabelMapper: (serie_app data, _) => data.valor.toString().replaceAll(".", ","),
+                                  dataLabelMapper: (serie_app data, _) => data.valor.toStringAsFixed(2).replaceAll(".", ","),
                                   dataLabelSettings: DataLabelSettings(isVisible: true,
                                       textStyle: TextStyle(fontSize: 11)),
                                   markerSettings: MarkerSettings(isVisible: true)
@@ -464,6 +818,15 @@ class _TelaDados extends State<TelaDados> {
                           "Fonte: $fonte",
                           style: TextStyle(fontSize: 10),
                         ),
+                      ),
+                      OutlinedButton(
+                          onPressed: (){
+                            Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (context) => DescricaoSeries(cod_series: cod_serie,))
+                            );
+                          },
+                            child: Text("Descrição da série")
                       ),
                       Padding(
                         padding: EdgeInsets.only(top: 20),
@@ -506,7 +869,7 @@ class _TelaDados extends State<TelaDados> {
                               ),
                               DataCell(
                                 Text(
-                                  e.valor.toString().replaceAll('.', ','),
+                                  e.valor.toStringAsFixed(2).replaceAll('.', ','),
                                   style: TextStyle(
                                     fontStyle: FontStyle.italic,
                                   ),

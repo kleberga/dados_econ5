@@ -1,7 +1,5 @@
-import 'dart:convert';
 import 'package:dados_economicos/variables_class.dart';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'TelaDados.dart';
 import 'back_services.dart';
 import 'database_helper.dart';
@@ -45,7 +43,7 @@ void main() async {
     },
   );
 
-  Future<String> getJsonFromRestAPI(String url_serie) async {
+ /* Future<String> getJsonFromRestAPI(String url_serie) async {
     String url = url_serie;
     http.Response response = await http.get(Uri.parse(url));
     return response.body;
@@ -78,10 +76,16 @@ void main() async {
     for(var i = 0; i<jsonResponse2.length; i++){
       listaLocalidades.add(Localidades(id: int.parse(jsonResponse2[i]['id']), nome: jsonResponse2[i]['nome'], nivelGeografico: jsonResponse2[i]['nivel']['id']));
     }
+
+    print(jsonResponse['variaveis'].firstWhere((e) => e['nome']=="INPC - Peso mensal")['id']);
+
   }
 
 
+
+
   loadDataIBGE();
+  */
 
   isNotificationGranted = await Permission.notification.isGranted;
 

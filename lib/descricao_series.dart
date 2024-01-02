@@ -2,6 +2,12 @@ import 'package:dados_economicos/TelaDados.dart';
 import 'package:dados_economicos/variables_class.dart';
 import 'package:flutter/material.dart';
 
+extension StringExtension on String {
+  String capitalize() {
+    return "${this[0].toLowerCase()}${this.substring(1)}";
+  }
+}
+
 class DescricaoSeries extends StatelessWidget {
 
   final int cod_series;
@@ -23,22 +29,24 @@ class DescricaoSeries extends StatelessWidget {
           itemBuilder: (context, index) {
             return ListTile(
               title: Text(listaSeries.firstWhere((element) => element.numero==cod_series ).nomeCompleto),
-              subtitle: Text("\nDescrição: "+listaSeries.firstWhere((element) => element.numero==cod_series).descricao +
+              subtitle: Text("\nDescrição: "+listaSeries.firstWhere((element) => element.numero==cod_series).descricao.capitalize() +
                   "\n"+
-                  "\nAbrangência: "+listaSeries.firstWhere((element) => element.numero==cod_series).nivelGeografico +
+                  "\nNível geográfico: "+listaSeries.firstWhere((element) => element.numero==cod_series).nivelGeografico +
                   "\n"+
-                  "\nPeriodicidade: "+listaSeries.firstWhere((element) => element.numero==cod_series).periodicidade +
+                  "\nLocalidade: "+listaSeries.firstWhere((element) => element.numero==cod_series).localidades +
                   "\n"+
-                  "\nFormato: "+listaSeries.firstWhere((element) => element.numero==cod_series).formato+
+                  "\nGrupo: "+listaSeries.firstWhere((element) => element.numero==cod_series).categoria.toLowerCase() +
                   "\n"+
-                  "\nForma de cálculo: "+listaSeries.firstWhere((element) => element.numero==cod_series).metrica+
+                  "\nForma de cálculo: "+listaSeries.firstWhere((element) => element.numero==cod_series).metrica.capitalize()+
+                  "\n"+
+                  "\nFormato da série: "+listaSeries.firstWhere((element) => element.numero==cod_series).formato+
+                  "\n"+
+                  "\nPeriodicidade de divulgação: "+listaSeries.firstWhere((element) => element.numero==cod_series).periodicidade +
+                  "\n"+
+                  "\nPeríodo disponível: entre $dataInicialSerie e $dataFinalSerie" +
                   "\n"+
                   "\nFonte: "+listaSeries.firstWhere((element) => element.numero==cod_series).fonte+
-                  "\n"+
-                  "\nPeríodo disponível: entre $dataInicialSerie e $dataFinalSerie."
-
-              ),
-
+                  "\n"),
             );
           },
         ),
