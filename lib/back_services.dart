@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:ui';
+import 'package:dados_economicos/TelaDados.dart';
 import 'package:dados_economicos/variables_class.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -72,6 +73,9 @@ var urlSerie;
 var cod_serie;
 var fonte;
 var valorToggleDB;
+var metricaArmaz;
+var localidadeArmaz;
+var categoriaArmaz;
 
 Future<String> getJsonFromRestAPI2() async {
   //String? urlSerie = await getStringFromLocalStorage("urlSerieArmaz");
@@ -108,7 +112,7 @@ Future loadDataIBGE2() async {
     var x = item.keys.toList()[i];
     x = formatter1.format(int.parse(x.substring(4))) + "/" + formatter2.format(int.parse(x.substring(0, 4)));
     var y = item.values.toList()[i].toString();
-    if(y!="..."||y!="-"){
+    if(y!="..."&&y!="-"){
       listaBack.add(
           serie_app(
               DateFormat('MM/yyyy').parse(x),
@@ -193,9 +197,13 @@ void onStart1(ServiceInstance service1) {
 
         var nomeSerie = listaSeries.firstWhere((element) => element.numero==cod_serie).nome;
 
+        metricaArmaz = await getStringFromLocalStorage("metricaArmaz");
+        localidadeArmaz = await getStringFromLocalStorage("localidadeArmaz");
+        categoriaArmaz = await getStringFromLocalStorage("categoriaArmaz");
 
+        print("dropdownValueMetrica: $dropdownValueMetrica");
         if(dataArmazenada!=null && (ultimaData!=dataArmazenada)){
-          NotificationService().showNotification(title: 'Atualização de série', body: "A série  '$nomeSerie' foi atualizada!!!");
+          NotificationService().showNotification(title: 'Atualização de série', body: "A série  '$nomeSerie - $metricaArmaz - $localidadeArmaz - $categoriaArmaz' foi atualizada!");
           await DatabaseHelper.insertToggle(Toggle_reg(id: cod_serie, valorToggle: valorToggleDB, dataCompara: ultimaData.toString()));
         }
       }

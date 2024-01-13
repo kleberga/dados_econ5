@@ -8,6 +8,12 @@ extension StringExtension on String {
   }
 }
 
+extension StringExtension2 on String {
+  String capitalize2() {
+    return "${this[0].toUpperCase()}${this.substring(1).toLowerCase()}";
+  }
+}
+
 class DescricaoSeries extends StatelessWidget {
 
   final int cod_series;
@@ -20,24 +26,28 @@ class DescricaoSeries extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text("Descrição da série"),
-        backgroundColor: Colors.blue[100],
+        title: Text("Descrição da série", style: TextStyle(color: Colors.white),),
+        iconTheme: IconThemeData(
+          color: Colors.white, //change your color here
+        ),
+        backgroundColor: Color.fromRGBO(63, 81, 181, 20),
       ),
       body: Container(
         child: ListView.builder(
           itemCount: 1,
           itemBuilder: (context, index) {
             return ListTile(
-              title: Text(listaSeries.firstWhere((element) => element.numero==cod_series ).nomeCompleto),
-              subtitle: Text("\nDescrição: "+listaSeries.firstWhere((element) => element.numero==cod_series).descricao.capitalize() +
+              title: Text(listaSeries.firstWhere((element) => element.numero==cod_series ).nomeCompleto,
+              style: TextStyle(fontWeight: FontWeight.bold),),
+              subtitle: Text("\nDescrição: "+listaSeries.firstWhere((element) => element.numero==cod_series).descricao+
                   "\n"+
                   "\nNível geográfico: "+listaSeries.firstWhere((element) => element.numero==cod_series).nivelGeografico +
                   "\n"+
                   "\nLocalidade: "+listaSeries.firstWhere((element) => element.numero==cod_series).localidades +
                   "\n"+
-                  "\nGrupo: "+listaSeries.firstWhere((element) => element.numero==cod_series).categoria.toLowerCase() +
+                  "\nGrupo: "+listaSeries.firstWhere((element) => element.numero==cod_series).categoria +
                   "\n"+
-                  "\nForma de cálculo: "+listaSeries.firstWhere((element) => element.numero==cod_series).metrica.capitalize()+
+                  "\nForma de cálculo: "+listaSeries.firstWhere((element) => element.numero==cod_series).metrica+
                   "\n"+
                   "\nFormato da série: "+listaSeries.firstWhere((element) => element.numero==cod_series).formato+
                   "\n"+
@@ -45,8 +55,10 @@ class DescricaoSeries extends StatelessWidget {
                   "\n"+
                   "\nPeríodo disponível: entre $dataInicialSerie e $dataFinalSerie" +
                   "\n"+
-                  "\nFonte: "+listaSeries.firstWhere((element) => element.numero==cod_series).fonte+
-                  "\n"),
+                  "\nFonte dos dados (local onde os dados são obtidos): "+listaSeries.firstWhere((element) => element.numero==cod_series).fonte+
+                  "\n",
+                textAlign: TextAlign.justify,
+              ),
             );
           },
         ),

@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'dart:core';
 import 'dart:ui';
 import 'package:dados_economicos/variables_class.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
@@ -46,6 +48,19 @@ var codAssunto;
 var dataInicialSerie;
 var dataFinalSerie;
 var metricaValue;
+var alturaCategoria;
+var valorItemHeightCategoria;
+var alturaSerie;
+var valorItemHeightSerie;
+var periodicidade;
+var alturaMetrica;
+var valorItemHeightMetrica;
+var formatoData;
+var formatoDataGrafico;
+var f = NumberFormat('#,##0.00', 'pt_BR');
+var listaAnosSerieAnual = [];
+var anoInicialSelecionado;
+var anoFinalSelecionado;
 
 class TelaDados extends StatefulWidget {
   final String assuntoSerie;
@@ -59,15 +74,15 @@ Future<String> getStringFromLocalStorage(String key) async {
   return prefs.getString(key) ?? '';
 }
 
-
-
 class _TelaDados extends State<TelaDados> {
-
   Future<String> getJsonFromRestAPI(String url_serie) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('urlSerieArmaz', urlSerie);
     await prefs.setString('fonteSerieArmaz', fonte);
     await prefs.setInt("codigoArmaz", cod_serie);
+    await prefs.setString("metricaArmaz", dropdownValueMetrica);
+    await prefs.setString("localidadeArmaz", dropdownValueLocalidade);
+    await prefs.setString("categoriaArmaz", dropdownValueCategoria);
     //String url = "https://api.bcb.gov.br/dados/serie/bcdata.sgs.433/dados?formato=json";
     String url = url_serie;
     http.Response response = await http.get(Uri.parse(url));
@@ -87,7 +102,9 @@ class _TelaDados extends State<TelaDados> {
     final jsonResponse = json.decode(jsonString);
     setState(() {
       for (Map<String, dynamic> i in jsonResponse){
-        chartData.add(serie_app.fromJson(i));
+        if(i['valor']!=""){
+          chartData.add(serie_app.fromJson(i));
+        }
       }
       endval1 = chartData.last.data;
       startval1 = chartData[chartData.length-13].data;
@@ -96,6 +113,9 @@ class _TelaDados extends State<TelaDados> {
       });
       dataInicialSerie = DateFormat('MM/yyyy').format(chartData.first.data).toString();
       dataFinalSerie = DateFormat('MM/yyyy').format(chartData.last.data).toString();
+      listaAnosSerieAnual = chartData.map((e) => e.data.toString().substring(0,4)).toSet().toList();
+      anoInicialSelecionado = listaAnosSerieAnual.length-13;
+      anoFinalSelecionado = listaAnosSerieAnual.length-1;
     });
     ultimaDataIPCA = chartData.last.data;
     final prefs = await SharedPreferences.getInstance();
@@ -112,8 +132,22 @@ class _TelaDados extends State<TelaDados> {
     setState(() {
       for (var i = 0; i<item.keys.toList().length; i++){
         var x = item.keys.toList()[i];
-        x = formatter1.format(int.parse(x.substring(4))) + "/" + formatter2.format(int.parse(x.substring(0, 4)));
+        var w = formatter1.format(int.parse(x.substring(4)));
+        if(periodicidade=="trimestral") {
+          if(w=="01"){
+            w = "03";
+          } else if(w=="02"){
+            w = "06";
+          } else if(w=="03"){
+            w = "09";
+          } else {
+            w = "12";
+          }
+        }
+        //x = formatter1.format(int.parse(x.substring(4))) + "/" + formatter2.format(int.parse(x.substring(0, 4)));
+        x = w + "/" + formatter2.format(int.parse(x.substring(0, 4)));
         var y = item.values.toList()[i].toString();
+        var periodicSerie;
         if(y!="..."&&y!="-"){
           chartData.add(
               serie_app(
@@ -128,12 +162,15 @@ class _TelaDados extends State<TelaDados> {
       });
       dataInicialSerie = DateFormat('MM/yyyy').format(chartData.first.data).toString();
       dataFinalSerie = DateFormat('MM/yyyy').format(chartData.last.data).toString();
+      ultimaDataIPCA = chartData.last.data;
+      listaAnosSerieAnual = chartData.map((e) => e.data.toString().substring(0,4)).toSet().toList();
+      anoInicialSelecionado = listaAnosSerieAnual.length-13;
+      anoFinalSelecionado = listaAnosSerieAnual.length-1;
     });
     endval1 = chartData.last.data;
     startval1 = chartData[chartData.length-13].data;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('dataFinal', endval1.toString());
-    ultimaDataIPCA = chartData.last.data;
   }
 
 
@@ -152,7 +189,6 @@ class _TelaDados extends State<TelaDados> {
     return output;
   }
 
-
   Future toggleDatabase() async {
     valorToggle = await DatabaseHelper.getAllToggle();
     initialIndex = valorToggle?.firstWhere((element) => element.id==cod_serie).valorToggle;
@@ -163,27 +199,20 @@ class _TelaDados extends State<TelaDados> {
     }
   }
 
+/*  void atualizarAnoInicial() async {
+      //listaAnosSerieAnual = await chartData.map((e) => e.data.toString().substring(0,4)).toSet().toList();
+    listaAnosSerieAnual = [2001,2002,2003,2004,2005,2006,2007,2008,2009,2010,2011,2012,2013,2014];
+      anoInicialSelecionado = await listaAnosSerieAnual.length-13;
+  }*/
 
   @override
   void initState() {
     // TODO: implement initState
     super.initState();
-/*    if(widget.assuntoSerie=="Índice de preços"){
-      listaEscolhida = listaSeries;
-    }*/
-    // filtrar o codigo do assunto
-    codAssunto = listaAssunto.firstWhere((element) => element.nome==widget.assuntoSerie).id;
-    // escolher as series que pertencem ao assunto escolhido
-    listaEscolhida = listaSeries.where((element) => element.idAssunto==codAssunto).toList();
-    // limpar a lista para evitar duplicidade quando a tela for recarregada
-    // criar a lista
-/*    for(var i = 0; i<listaEscolhida.length; i++) {
-      if(listaEscolhida.any((element) => element==listaEscolhida[i].nome)){
-        continue;
-      }
-      listaMostrar.add(listaEscolhida[i].nome);
-    }*/
 
+    codAssunto = listaAssunto.firstWhere((element) => element.nome==widget.assuntoSerie).id;
+
+    listaEscolhida = listaSeries.where((element) => element.idAssunto==codAssunto).toList();
 
     listaMostrar = listaEscolhida.map((element) => element.nome.toString()).toList().toSet().toList();
     dropdownValue = listaMostrar.first;
@@ -224,6 +253,16 @@ class _TelaDados extends State<TelaDados> {
         element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog &&
         element.localidades==dropdownValueLocalidade && element.categoria==dropdownValueCategoria).formato;
 
+    periodicidade = listaEscolhida.firstWhere((element) => element.nome==dropdownValue &&
+        element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog &&
+        element.localidades==dropdownValueLocalidade && element.categoria==dropdownValueCategoria).periodicidade;
+
+    if(periodicidade=="anual"){
+      formatoData = "yyyy";
+    } else {
+      formatoData = "MM/yyyy";
+    }
+
     chartData.clear();
     if(fonte=="Banco Central do Brasil"){
       loadDataSGS();
@@ -232,9 +271,328 @@ class _TelaDados extends State<TelaDados> {
     }
   }
 
+
+  void _showDialog(Widget child) async {
+    showCupertinoModalPopup<void>(
+      context: context,
+      builder: (BuildContext context) => Container(
+        height: 216,
+        padding: const EdgeInsets.only(top: 6.0),
+        // The Bottom margin is provided to align the popup above the system navigation bar.
+        margin: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
+        // Provide a background color for the popup.
+        color: CupertinoColors.systemBackground.resolveFrom(context),
+        // Use a SafeArea widget to avoid system overlaps.
+        child: SafeArea(
+          top: false,
+          child: child,
+        ),
+      ),
+    );
+  }
+
+/*  Widget metodoSelecaoInicial(String periodicidadeSerie){
+    if(listaAnosSerieAnual.isNotEmpty){
+      if(periodicidadeSerie!="anual"){
+        return TextField(
+          controller: dateInputIni,
+          //editing controller of this TextField
+          decoration: InputDecoration(
+              icon: Icon(Icons.calendar_today), //icon of text field
+              labelText: "Data Inicial:" //label text of field
+          ),
+          readOnly: true,
+          //set it true, so that user will not able to edit text
+          onTap: () async {
+            DateTime? pickedDate = await showMonthPicker(
+                context: context,
+                initialDate: startval1,
+                firstDate: DateFormat(formatoData).parse(dataInicialSerie),
+                lastDate: DateFormat(formatoData).parse(dataFinalSerie)
+            );
+            if (pickedDate != null) {
+              String formattedDate = DateFormat(formatoData).format(pickedDate);
+              setState(() {
+                dateInputIni.text = formattedDate;
+                startval1 = DateFormat(formatoData).parse(formattedDate);
+              });
+            } else {}
+          },
+        );
+      } else {
+        return Column(
+          children: <Widget>[
+            Text("Data inicial:"),
+            CupertinoButton(
+              padding: EdgeInsets.zero,
+              // Display a CupertinoPicker with list of fruits.
+              onPressed: () async => _showDialog(await
+              CupertinoPicker(
+                magnification: 1.22,
+                squeeze: 1.2,
+                useMagnifier: true,
+                itemExtent: 32,
+                // This sets the initial item.
+                scrollController: FixedExtentScrollController(
+                  initialItem: await anoInicialSelecionado,
+                ),
+                // This is called when selected item is changed.
+                onSelectedItemChanged: (int selectedItem) {
+                  String formattedDate = DateFormat("MM/yyyy").parse("01/"+listaAnosSerieAnual[(selectedItem)]).toString();
+                  setState(() {
+                    anoInicialSelecionado = selectedItem;
+                    dateInputIni.text = formattedDate;
+                    //startval1 = DateFormat("MM/yyyy").parse(formattedDate);
+                    startval1 = DateFormat("yyyy-MM-dd").parse(formattedDate);
+                  });
+                },
+                children:
+                List<Widget>.generate(listaAnosSerieAnual.length, (int index) {
+                  return Center(child: Text(listaAnosSerieAnual[index]));
+                }),
+              ),
+              ),
+              // This displays the selected fruit name.
+              child: Text(
+                listaAnosSerieAnual[anoInicialSelecionado],
+                style: const TextStyle(
+                  fontSize: 18.0, color: Colors.black, decoration: TextDecoration.underline
+                ),
+              ),
+            ),
+          ],
+        );
+      }
+    } else {
+      return CircularProgressIndicator();
+    }
+  }*/
+
+  Widget metodoSelecaoInicial(String periodicidadeSerie){
+    if(listaAnosSerieAnual.isNotEmpty){
+      if (periodicidadeSerie != "anual") {
+        return Column(
+          children: [
+            TextField(
+              controller: dateInputIni,
+              //editing controller of this TextField
+              decoration: InputDecoration(
+                  icon: Icon(Icons.calendar_today), //icon of text field
+                  labelText: "Data Inicial:" //label text of field
+                  ),
+              readOnly: true,
+              //set it true, so that user will not able to edit text
+              onTap: () async {
+                DateTime? pickedDate = await showMonthPicker(
+                    context: context,
+                    initialDate: startval1,
+                    firstDate: DateFormat(formatoData).parse(dataInicialSerie),
+                    lastDate: DateFormat(formatoData).parse(dataFinalSerie));
+                if (pickedDate != null) {
+                  String formattedDate =
+                      DateFormat(formatoData).format(pickedDate);
+                  setState(() {
+                    dateInputIni.text = formattedDate;
+                    startval1 = DateFormat(formatoData).parse(formattedDate);
+                  });
+                } else {}
+              },
+            ),
+            TextField(
+              controller: dateInputEnd,
+              //editing controller of this TextField
+              decoration: InputDecoration(
+                  icon: Icon(Icons.calendar_today), //icon of text field
+                  labelText: "Data Final:" //label text of field
+                  ),
+              readOnly: true,
+              //set it true, so that user will not able to edit text
+              onTap: () async {
+                DateTime? pickedDate = await showMonthPicker(
+                    context: context,
+                    initialDate: endval1,
+                    firstDate: DateFormat(formatoData).parse(dataInicialSerie),
+                    lastDate: DateFormat(formatoData).parse(dataFinalSerie));
+                if (pickedDate != null) {
+                  String formattedDate =
+                      DateFormat(formatoData).format(pickedDate);
+                  setState(() {
+                    dateInputEnd.text = formattedDate;
+                    endval1 = DateFormat(formatoData).parse(formattedDate);
+                  });
+                } else {}
+              },
+            ),
+          ],
+        );
+      } else {
+        return Column(
+          children: <Widget>[
+            Text("Data inicial:"),
+            CupertinoButton(
+              padding: EdgeInsets.zero,
+              // Display a CupertinoPicker with list of fruits.
+              onPressed: () async => _showDialog(await
+              CupertinoPicker(
+                magnification: 1.22,
+                squeeze: 1.2,
+                useMagnifier: true,
+                itemExtent: 32,
+                // This sets the initial item.
+                scrollController: FixedExtentScrollController(
+                  initialItem: anoInicialSelecionado,
+                ),
+                // This is called when selected item is changed.
+                onSelectedItemChanged: (int selectedItem) {
+                  String formattedDate = DateFormat("MM/yyyy").parse("01/"+listaAnosSerieAnual[(selectedItem)]).toString();
+                  setState(() {
+                    anoInicialSelecionado = selectedItem;
+                    dateInputIni.text = formattedDate;
+                    //startval1 = DateFormat("MM/yyyy").parse(formattedDate);
+                    startval1 = DateFormat("yyyy-MM-dd").parse(formattedDate);
+                  });
+                },
+                children:
+                List<Widget>.generate(listaAnosSerieAnual.length, (int index) {
+                  return Center(child: Text(listaAnosSerieAnual[index]));
+                }),
+              ),
+              ),
+              // This displays the selected fruit name.
+              child: Text(
+                listaAnosSerieAnual[anoInicialSelecionado],
+                style: const TextStyle(
+                    fontSize: 18.0, color: Colors.black, decoration: TextDecoration.underline
+                ),
+              ),
+            ),
+            Text("Data final:"),
+            CupertinoButton(
+              padding: EdgeInsets.zero,
+              // Display a CupertinoPicker with list of fruits.
+              onPressed: () async => _showDialog(await
+              CupertinoPicker(
+                magnification: 1.22,
+                squeeze: 1.2,
+                useMagnifier: true,
+                itemExtent: 32,
+                // This sets the initial item.
+                scrollController: FixedExtentScrollController(
+                  initialItem: anoFinalSelecionado,
+                ),
+                // This is called when selected item is changed.
+                onSelectedItemChanged: (int selectedItem) {
+                  String formattedDate = DateFormat("MM/yyyy").parse("01/"+listaAnosSerieAnual[(selectedItem)]).toString();
+                  setState(() {
+                    anoFinalSelecionado = selectedItem;
+                    dateInputEnd.text = formattedDate;
+                    //startval1 = DateFormat("MM/yyyy").parse(formattedDate);
+                    endval1 = DateFormat("yyyy-MM-dd").parse(formattedDate);
+                  });
+                },
+                children:
+                List<Widget>.generate(listaAnosSerieAnual.length, (int index) {
+                  return Center(child: Text(listaAnosSerieAnual[index]));
+                }),
+              ),
+              ),
+              // This displays the selected fruit name.
+              child: Text(
+                listaAnosSerieAnual[anoFinalSelecionado],
+                style: const TextStyle(
+                    fontSize: 18.0, color: Colors.black, decoration: TextDecoration.underline
+                ),
+              ),
+            ),
+          ],
+        );
+      }
+    } else {
+      return CircularProgressIndicator();
+    }
+  }
+
+/*  Widget metodoSelecaoFinal(String periodicidadeSerie){
+    if(listaAnosSerieAnual.isNotEmpty){
+      if(periodicidadeSerie!="anual"){
+        return TextField(
+          controller: dateInputEnd,
+          //editing controller of this TextField
+          decoration: InputDecoration(
+              icon: Icon(Icons.calendar_today), //icon of text field
+              labelText: "Data Final:" //label text of field
+          ),
+          readOnly: true,
+          //set it true, so that user will not able to edit text
+          onTap: () async {
+            DateTime? pickedDate = await showMonthPicker(
+                context: context,
+                initialDate: endval1,
+                firstDate: DateFormat(formatoData).parse(dataInicialSerie),
+                lastDate: DateFormat(formatoData).parse(dataFinalSerie)
+            );
+            if (pickedDate != null) {
+              String formattedDate = DateFormat(formatoData).format(pickedDate);
+              setState(() {
+                dateInputEnd.text = formattedDate;
+                endval1 = DateFormat(formatoData).parse(formattedDate);
+              });
+            } else {}
+          },
+        );
+      } else {
+        return Column(
+          children: <Widget>[
+            Text("Data final:"),
+            CupertinoButton(
+              padding: EdgeInsets.zero,
+              // Display a CupertinoPicker with list of fruits.
+              onPressed: () async => _showDialog(await
+              CupertinoPicker(
+                magnification: 1.22,
+                squeeze: 1.2,
+                useMagnifier: true,
+                itemExtent: 32,
+                // This sets the initial item.
+                scrollController: FixedExtentScrollController(
+                  initialItem: await anoFinalSelecionado,
+                ),
+                // This is called when selected item is changed.
+                onSelectedItemChanged: (int selectedItem) {
+                  String formattedDate = DateFormat("MM/yyyy").parse("01/"+listaAnosSerieAnual[(selectedItem)]).toString();
+                  setState(() {
+                    anoFinalSelecionado = selectedItem;
+                    dateInputEnd.text = formattedDate;
+                    //startval1 = DateFormat("MM/yyyy").parse(formattedDate);
+                    endval1 = DateFormat("yyyy-MM-dd").parse(formattedDate);
+                  });
+                },
+                children:
+                List<Widget>.generate(listaAnosSerieAnual.length, (int index) {
+                  return Center(child: Text(listaAnosSerieAnual[index]));
+                }),
+              ),
+              ),
+              // This displays the selected fruit name.
+              child: Text(
+                listaAnosSerieAnual[anoFinalSelecionado],
+                style: const TextStyle(
+                    fontSize: 18.0, color: Colors.black, decoration: TextDecoration.underline
+                ),
+              ),
+            ),
+          ],
+        );
+      }
+    } else {
+      return CircularProgressIndicator();
+    }
+  }*/
+
   @override
   Widget build(BuildContext context) {
-
     filtrarDados(){
       dateInputIni.text = DateFormat('MM/yyyy').format(startval1).toString();
       dateInputEnd.text = DateFormat('MM/yyyy').format(endval1).toString();
@@ -247,10 +605,78 @@ class _TelaDados extends State<TelaDados> {
       return lista_filtrada;
     }
 
+    Size _textSize(String text, TextStyle style) {
+      final TextPainter textPainter = TextPainter(
+          text: TextSpan(text: text, style: style), maxLines: 1, textDirection: TextDirection.ltr)
+        ..layout(minWidth: 0, maxWidth: double.infinity);
+      return textPainter.size;
+    }
+
+    if(_textSize(dropdownValueCategoria, TextStyle(fontWeight: FontWeight.normal, fontSize: 15)).width<=300){
+      alturaCategoria = 40.0;
+    } else if(_textSize(dropdownValueCategoria, TextStyle(fontWeight: FontWeight.normal, fontSize: 15)).width>300&&
+        _textSize(dropdownValueCategoria, TextStyle(fontWeight: FontWeight.normal, fontSize: 15)).width<=525){
+      alturaCategoria = 60.0;
+    } else  {
+      alturaCategoria = 80.0;
+    }
+    if(_textSize(dropdownValueCategoria, TextStyle(fontWeight: FontWeight.normal, fontSize: 15)).width>300) {
+      valorItemHeightCategoria = 60.0;
+    } else {
+      valorItemHeightCategoria = 50.0;
+    }
+
+    if(_textSize(dropdownValue, TextStyle(fontWeight: FontWeight.normal, fontSize: 15)).width<=327){
+      alturaSerie = 40.0;
+    } else if(_textSize(dropdownValue, TextStyle(fontWeight: FontWeight.normal, fontSize: 15)).width>327&&
+        _textSize(dropdownValue, TextStyle(fontWeight: FontWeight.normal, fontSize: 15)).width<=525){
+      alturaSerie = 60.0;
+    } else  {
+      alturaSerie = 80.0;
+    }
+    if(_textSize(dropdownValue, TextStyle(fontWeight: FontWeight.normal, fontSize: 15)).width>300) {
+      valorItemHeightSerie = 60.0;
+    } else {
+      valorItemHeightSerie = 50.0;
+    }
+
+    if(_textSize(dropdownValueMetrica, TextStyle(fontWeight: FontWeight.normal, fontSize: 15)).width<=327){
+      alturaMetrica = 40.0;
+    } else if(_textSize(dropdownValueMetrica, TextStyle(fontWeight: FontWeight.normal, fontSize: 15)).width>327&&
+        _textSize(dropdownValueMetrica, TextStyle(fontWeight: FontWeight.normal, fontSize: 15)).width<=525){
+      alturaMetrica = 60.0;
+    } else  {
+      alturaMetrica = 80.0;
+    }
+    if(_textSize(dropdownValueMetrica, TextStyle(fontWeight: FontWeight.normal, fontSize: 15)).width>300) {
+      valorItemHeightMetrica = 60.0;
+    } else {
+      valorItemHeightMetrica = 50.0;
+    }
+
+    if(periodicidade=="anual"){
+      formatoData = "yyyy";
+      formatoDataGrafico = "yyyy";
+    } else {
+      formatoData = "MM/yyyy";
+      formatoDataGrafico = "MM/yy";
+    }
+/*
+    if((anoInicialSelecionado==null||anoInicialSelecionado<0)&&chartData.isNotEmpty){
+      listaAnosSerieAnual = chartData.map((e) => e.data.toString().substring(0,4)).toSet().toList();
+      anoInicialSelecionado = listaAnosSerieAnual.length-13;
+    }
+
+*/
+    print(listaSeries.length);
+
     return Scaffold(
         appBar: AppBar(
-          title: Text("Visualize os dados"),
-          backgroundColor: Colors.blue[100],
+          title: Text("Visualize os dados", style: TextStyle(color: Colors.white) ),
+          backgroundColor: Color.fromRGBO(63, 81, 181, 20),
+          iconTheme: IconThemeData(
+            color: Colors.white, //change your color here
+          ),
         ),
         body: SingleChildScrollView(
             child: Stack(
@@ -268,10 +694,10 @@ class _TelaDados extends State<TelaDados> {
                         children: <Widget>[
                           Expanded(
                             child: Container(
-                                height: 40,
+                                height: alturaSerie,
                                 width: 200,
                                 decoration: BoxDecoration(
-                                    color: Colors.grey[200],
+                                    color: Color.fromRGBO(63, 81, 181, 20),
                                     borderRadius: BorderRadius.circular(30), //border raiuds of dropdown button
                                     boxShadow: <BoxShadow>[ //apply shadow on Dropdown button
                                       BoxShadow(
@@ -281,10 +707,15 @@ class _TelaDados extends State<TelaDados> {
                                 ),
                                 child: Center(
                                   child: DropdownButton<String>(
+                                    iconEnabledColor: Colors.white,
+                                    itemHeight: valorItemHeightSerie,
+                                    padding: EdgeInsets.all(10),
+                                    isExpanded: true,
                                     value: dropdownValue,
                                     icon: const Icon(Icons.arrow_downward),
                                     elevation: 16,
-                                    style: const TextStyle(color: Colors.deepPurple, fontSize: 15),
+                                    dropdownColor: Color.fromRGBO(63, 81, 181, 20),
+                                    style: const TextStyle(color: Colors.white, fontSize: 15),
                                     focusColor: Colors.grey,
                                     underline: Container(
                                       height: 0,
@@ -322,12 +753,16 @@ class _TelaDados extends State<TelaDados> {
                                         formatoSerie = listaEscolhida.firstWhere((element) => element.nome==dropdownValue &&
                                             element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog &&
                                             element.localidades==dropdownValueLocalidade && element.categoria==dropdownValueCategoria).formato;
+                                        periodicidade = listaEscolhida.firstWhere((element) => element.nome==dropdownValue &&
+                                            element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog &&
+                                            element.localidades==dropdownValueLocalidade && element.categoria==dropdownValueCategoria).periodicidade;
                                         chartData.clear();
                                         if(fonte=="Banco Central do Brasil"){
                                           loadDataSGS();
                                         } else {
                                           loadDataIBGE();
                                         }
+                                        //atualizarAnoInicial();
                                       });
                                     },
                                     items: listaMostrar.map<DropdownMenuItem<String>>((String value) {
@@ -351,10 +786,10 @@ class _TelaDados extends State<TelaDados> {
                       ),
                       Padding(padding: EdgeInsets.only(bottom: 5)),
                       Container(
-                            height: 40,
+                            height: alturaMetrica,
                             width: 400,
                             decoration: BoxDecoration(
-                                color: Colors.grey[200],
+                                color: Color.fromRGBO(63, 81, 181, 20),
                                 borderRadius: BorderRadius.circular(30), //border raiuds of dropdown button
                                 boxShadow: <BoxShadow>[ //apply shadow on Dropdown button
                                   BoxShadow(
@@ -364,10 +799,15 @@ class _TelaDados extends State<TelaDados> {
                             ),
                             child: Center(
                               child: DropdownButton<String>(
+                                padding: EdgeInsets.all(10),
+                                iconEnabledColor: Colors.white,
+                                itemHeight: valorItemHeightMetrica,
+                                isExpanded: true,
                                 value: dropdownValueMetrica,
                                 icon: const Icon(Icons.arrow_downward),
                                 elevation: 16,
-                                style: const TextStyle(color: Colors.deepPurple, fontSize: 15),
+                                dropdownColor: Color.fromRGBO(63, 81, 181, 20),
+                                style: const TextStyle(color: Colors.white, fontSize: 15),
                                 focusColor: Colors.grey,
                                 underline: Container(
                                   height: 0,
@@ -397,18 +837,19 @@ class _TelaDados extends State<TelaDados> {
                                                 element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog &&
                                                 element.localidades==dropdownValueLocalidade && element.categoria==dropdownValueCategoria).numero;
                                             initialIndex = valorToggle?.firstWhere((element) => element.id==cod_serie).valorToggle;
-                                            nomeSerie = listaEscolhida.firstWhere((element) => element.nome==dropdownValue &&
-                                                element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog &&
-                                                element.localidades==dropdownValueLocalidade && element.categoria==dropdownValueCategoria).nome;
                                             formatoSerie = listaEscolhida.firstWhere((element) => element.nome==dropdownValue &&
                                                 element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog &&
                                                 element.localidades==dropdownValueLocalidade && element.categoria==dropdownValueCategoria).formato;
+                                            periodicidade = listaEscolhida.firstWhere((element) => element.nome==dropdownValue &&
+                                                element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog &&
+                                                element.localidades==dropdownValueLocalidade && element.categoria==dropdownValueCategoria).periodicidade;
                                             chartData.clear();
                                             if(fonte=="Banco Central do Brasil"){
                                               loadDataSGS();
                                             } else {
                                               loadDataIBGE();
                                             }
+                                            //atualizarAnoInicial();
                                           });
                                 },
                                 items: listaMostrarMetrica.map<DropdownMenuItem<String>>((String value) {
@@ -432,7 +873,7 @@ class _TelaDados extends State<TelaDados> {
                           height: 40,
                           width: 400,
                           decoration: BoxDecoration(
-                              color: Colors.grey[200],
+                              color: Color.fromRGBO(63, 81, 181, 20),
                               borderRadius: BorderRadius.circular(30), //border raiuds of dropdown button
                               boxShadow: <BoxShadow>[ //apply shadow on Dropdown button
                                 BoxShadow(
@@ -442,11 +883,14 @@ class _TelaDados extends State<TelaDados> {
                           ),
                           child: Center(
                             child: DropdownButton<String>(
+                              iconEnabledColor: Colors.white,
+                              isExpanded: true,
                               value: dropdownValueNivelGeog,
                               icon: const Icon(Icons.arrow_downward),
                               elevation: 16,
-                              style: const TextStyle(color: Colors.deepPurple, fontSize: 15),
+                              style: const TextStyle(color: Colors.white, fontSize: 15),
                               focusColor: Colors.grey,
+                              dropdownColor: Color.fromRGBO(63, 81, 181, 20),
                               underline: Container(
                                 height: 0,
                                 color: Colors.deepPurpleAccent,
@@ -472,18 +916,19 @@ class _TelaDados extends State<TelaDados> {
                                                 element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog &&
                                                 element.localidades==dropdownValueLocalidade && element.categoria==dropdownValueCategoria).numero;
                                             initialIndex = valorToggle?.firstWhere((element) => element.id==cod_serie).valorToggle;
-                                            nomeSerie = listaEscolhida.firstWhere((element) => element.nome==dropdownValue &&
-                                                element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog &&
-                                                element.localidades==dropdownValueLocalidade && element.categoria==dropdownValueCategoria).nome;
                                             formatoSerie = listaEscolhida.firstWhere((element) => element.nome==dropdownValue &&
                                                 element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog &&
                                                 element.localidades==dropdownValueLocalidade && element.categoria==dropdownValueCategoria).formato;
+                                            periodicidade = listaEscolhida.firstWhere((element) => element.nome==dropdownValue &&
+                                                element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog &&
+                                                element.localidades==dropdownValueLocalidade && element.categoria==dropdownValueCategoria).periodicidade;
                                             chartData.clear();
                                             if(fonte=="Banco Central do Brasil"){
                                               loadDataSGS();
                                             } else {
                                               loadDataIBGE();
                                             }
+                                            //atualizarAnoInicial();
                                           });
                               },
                               items: listaMostrarNivelGeog.map<DropdownMenuItem<String>>((String value) {
@@ -507,7 +952,7 @@ class _TelaDados extends State<TelaDados> {
                           height: 40,
                           width: 400,
                           decoration: BoxDecoration(
-                              color: Colors.grey[200],
+                              color: Color.fromRGBO(63, 81, 181, 20),
                               borderRadius: BorderRadius.circular(30), //border raiuds of dropdown button
                               boxShadow: <BoxShadow>[ //apply shadow on Dropdown button
                                 BoxShadow(
@@ -517,11 +962,14 @@ class _TelaDados extends State<TelaDados> {
                           ),
                           child: Center(
                             child: DropdownButton<String>(
+                              iconEnabledColor: Colors.white,
+                              isExpanded: true,
                               value: dropdownValueLocalidade,
                               icon: const Icon(Icons.arrow_downward),
                               elevation: 16,
-                              style: const TextStyle(color: Colors.deepPurple, fontSize: 15),
+                              style: const TextStyle(color: Colors.white, fontSize: 15),
                               focusColor: Colors.grey,
+                              dropdownColor: Color.fromRGBO(63, 81, 181, 20),
                               underline: Container(
                                 height: 0,
                                 color: Colors.deepPurpleAccent,
@@ -544,18 +992,19 @@ class _TelaDados extends State<TelaDados> {
                                                 element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog &&
                                                 element.localidades==dropdownValueLocalidade && element.categoria==dropdownValueCategoria).numero;
                                             initialIndex = valorToggle?.firstWhere((element) => element.id==cod_serie).valorToggle;
-                                            nomeSerie = listaEscolhida.firstWhere((element) => element.nome==dropdownValue &&
-                                                element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog &&
-                                                element.localidades==dropdownValueLocalidade && element.categoria==dropdownValueCategoria).nome;
                                             formatoSerie = listaEscolhida.firstWhere((element) => element.nome==dropdownValue &&
                                                 element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog &&
                                                 element.localidades==dropdownValueLocalidade && element.categoria==dropdownValueCategoria).formato;
+                                            periodicidade = listaEscolhida.firstWhere((element) => element.nome==dropdownValue &&
+                                                element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog &&
+                                                element.localidades==dropdownValueLocalidade && element.categoria==dropdownValueCategoria).periodicidade;
                                             chartData.clear();
                                             if(fonte=="Banco Central do Brasil"){
                                               loadDataSGS();
                                             } else {
                                               loadDataIBGE();
                                             }
+                                            //atualizarAnoInicial();
                                           });
                               },
                               items: listaMostrarLocalidade.map<DropdownMenuItem<String>>((String value) {
@@ -576,70 +1025,77 @@ class _TelaDados extends State<TelaDados> {
                       ),
                       Padding(padding: EdgeInsets.only(bottom: 5)),
                       Container(
-                          height: 40,
-                          width: 400,
-                          decoration: BoxDecoration(
-                              color: Colors.grey[200],
-                              borderRadius: BorderRadius.circular(30), //border raiuds of dropdown button
-                              boxShadow: <BoxShadow>[ //apply shadow on Dropdown button
-                                BoxShadow(
-                                    color: Color.fromRGBO(0, 0, 0, 0.57), //shadow for button
-                                    blurRadius: 5) //blur radius of shadow
-                              ]
-                          ),
-                          child: Center(
-                            child: DropdownButton<String>(
-                              isExpanded: true,
-                              value: dropdownValueCategoria,
-                              icon: const Icon(Icons.arrow_downward),
-                              elevation: 16,
-                              style: const TextStyle(color: Colors.deepPurple, fontSize: 15),
-                              focusColor: Colors.grey,
-                              underline: Container(
-                                height: 0,
-                                color: Colors.deepPurpleAccent,
-                              ),
-                              onChanged: (String? value) {
-                                // This is called when the user selects an item.
-                                          setState(() {
-                                            dropdownValueCategoria = value!;
-                                            urlSerie = listaEscolhida.firstWhere((element) => element.nome==dropdownValue &&
-                                                element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog &&
-                                                element.localidades==dropdownValueLocalidade && element.categoria==dropdownValueCategoria).urlAPI;
-                                            fonte = listaEscolhida.firstWhere((element) => element.nome==dropdownValue &&
-                                                element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog &&
-                                                element.localidades==dropdownValueLocalidade && element.categoria==dropdownValueCategoria).fonte;
-                                            cod_serie = listaEscolhida.firstWhere((element) => element.nome==dropdownValue &&
-                                                element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog &&
-                                                element.localidades==dropdownValueLocalidade && element.categoria==dropdownValueCategoria).numero;
-                                            initialIndex = valorToggle?.firstWhere((element) => element.id==cod_serie).valorToggle;
-                                            nomeSerie = listaEscolhida.firstWhere((element) => element.nome==dropdownValue &&
-                                                element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog &&
-                                                element.localidades==dropdownValueLocalidade && element.categoria==dropdownValueCategoria).nome;
-                                            formatoSerie = listaEscolhida.firstWhere((element) => element.nome==dropdownValue &&
-                                                element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog &&
-                                                element.localidades==dropdownValueLocalidade && element.categoria==dropdownValueCategoria).formato;
-                                            chartData.clear();
-                                            if(fonte=="Banco Central do Brasil"){
-                                              loadDataSGS();
-                                            } else {
-                                              loadDataIBGE();
-                                            }
-                                          });
-                              },
-                              items: listaMostrarCategoria.map<DropdownMenuItem<String>>((String value) {
-                                return DropdownMenuItem<String>(
-                                  value: value,
-                                  child: Center(
-                                    child: Center(
-                                      child: Text(value.toLowerCase()),
-                                    ),
-                                  )
-                                );
-                              }).toList(),
+                           height: alturaCategoria,
+                            width: 400,
+                            decoration: BoxDecoration(
+                                color: Color.fromRGBO(63, 81, 181, 20),
+                                borderRadius: BorderRadius.circular(30), //border raiuds of dropdown button
+                                boxShadow: <BoxShadow>[ //apply shadow on Dropdown button
+                                    BoxShadow(
+                                      color: Color.fromRGBO(0, 0, 0, 0.57), //shadow for button
+                                      blurRadius: 5) //blur radius of shadow
+                                ]
                             ),
-                          )
-                      ),
+                            child: Center(
+                              child: DropdownButtonHideUnderline(
+                                child: DropdownButton<String>(
+                                  iconEnabledColor: Colors.white,
+                                  itemHeight: valorItemHeightCategoria,
+                                  padding: EdgeInsets.all(10),
+                                  //isDense: true,
+                                  isExpanded: true,
+                                  value: dropdownValueCategoria,
+                                  icon: const Icon(Icons.arrow_downward),
+                                  elevation: 16,
+                                  style: const TextStyle(color: Colors.white, fontSize: 15),
+                                  focusColor: Colors.grey,
+                                  dropdownColor: Color.fromRGBO(63, 81, 181, 20),
+                                  underline: Container(
+                                    height: 0,
+                                    color: Colors.deepPurpleAccent,
+                                  ),
+                                  onChanged: (String? value) {
+                                    // This is called when the user selects an item.
+                                    setState(() {
+                                      dropdownValueCategoria = value!;
+                                      urlSerie = listaEscolhida.firstWhere((element) => element.nome==dropdownValue &&
+                                          element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog &&
+                                          element.localidades==dropdownValueLocalidade && element.categoria==dropdownValueCategoria).urlAPI;
+                                      fonte = listaEscolhida.firstWhere((element) => element.nome==dropdownValue &&
+                                          element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog &&
+                                          element.localidades==dropdownValueLocalidade && element.categoria==dropdownValueCategoria).fonte;
+                                      cod_serie = listaEscolhida.firstWhere((element) => element.nome==dropdownValue &&
+                                          element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog &&
+                                          element.localidades==dropdownValueLocalidade && element.categoria==dropdownValueCategoria).numero;
+                                      initialIndex = valorToggle?.firstWhere((element) => element.id==cod_serie).valorToggle;
+                                      formatoSerie = listaEscolhida.firstWhere((element) => element.nome==dropdownValue &&
+                                          element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog &&
+                                          element.localidades==dropdownValueLocalidade && element.categoria==dropdownValueCategoria).formato;
+                                      periodicidade = listaEscolhida.firstWhere((element) => element.nome==dropdownValue &&
+                                          element.metrica==dropdownValueMetrica && element.nivelGeografico==dropdownValueNivelGeog &&
+                                          element.localidades==dropdownValueLocalidade && element.categoria==dropdownValueCategoria).periodicidade;
+                                      // salvar as variaveis para serem mostradas no notificacao, caso o usuario escolha receber notificacao
+                                      chartData.clear();
+                                      if(fonte=="Banco Central do Brasil"){
+                                        loadDataSGS();
+                                      } else {
+                                        loadDataIBGE();
+                                      }
+                                      //atualizarAnoInicial();
+                                    });
+                                  },
+                                  items: listaMostrarCategoria.map<DropdownMenuItem<String>>((String value) {
+                                    return DropdownMenuItem<String>(
+                                        value: value,
+                                        child: Center(
+                                            child: Text(value),
+                                        )
+                                    );
+                                  }).toList(),
+                                ),
+                              )
+                            )
+                        ),
                       Container(
                         width: double.infinity,
                         padding: const EdgeInsets.only(left: 32, right: 32, top: 15),
@@ -647,9 +1103,10 @@ class _TelaDados extends State<TelaDados> {
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
                             Text(
-                              "Deseja receber notificação quando esta série receber novos valores?",
-                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                            ),
+                                "Deseja receber notificação quando esta série receber novos valores?",
+                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                textAlign: TextAlign.center,
+                              ),
                           ],
                         ),
                       ),
@@ -689,7 +1146,6 @@ class _TelaDados extends State<TelaDados> {
                                     initialIndex = index!;
                                     atualizarToggle();
                                   });
-                                  print("valorToggle: $valorToggle");
                                   final service1 = FlutterBackgroundService();
                                   service1.invoke("stopService");
                                   await initializeService1();
@@ -706,7 +1162,8 @@ class _TelaDados extends State<TelaDados> {
                         "Selecione o intervalo:",
                         style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                       ),
-                      TextField(
+                      metodoSelecaoInicial(periodicidade),
+                      /*TextField(
                         controller: dateInputIni,
                         //editing controller of this TextField
                         decoration: InputDecoration(
@@ -719,14 +1176,14 @@ class _TelaDados extends State<TelaDados> {
                           DateTime? pickedDate = await showMonthPicker(
                               context: context,
                               initialDate: startval1,
-                              firstDate: DateFormat('MM/yyyy').parse(dataInicialSerie),
-                              lastDate: DateFormat('MM/yyyy').parse(dataFinalSerie)
+                              firstDate: DateFormat(formatoData).parse(dataInicialSerie),
+                              lastDate: DateFormat(formatoData).parse(dataFinalSerie)
                           );
                           if (pickedDate != null) {
-                            String formattedDate = DateFormat('MM/yyyy').format(pickedDate);
+                            String formattedDate = DateFormat(formatoData).format(pickedDate);
                             setState(() {
                               dateInputIni.text = formattedDate;
-                              startval1 = DateFormat('MM/yyyy').parse(formattedDate);
+                              startval1 = DateFormat(formatoData).parse(formattedDate);
                             });
                           } else {}
                         },
@@ -744,23 +1201,23 @@ class _TelaDados extends State<TelaDados> {
                           DateTime? pickedDate = await showMonthPicker(
                               context: context,
                               initialDate: endval1,
-                              firstDate: DateFormat('MM/yyyy').parse(dataInicialSerie),
-                              lastDate: DateFormat('MM/yyyy').parse(dataFinalSerie)
+                              firstDate: DateFormat(formatoData).parse(dataInicialSerie),
+                              lastDate: DateFormat(formatoData).parse(dataFinalSerie)
                           );
                           if (pickedDate != null) {
-                            String formattedDate = DateFormat('MM/yyyy').format(pickedDate);
+                            String formattedDate = DateFormat(formatoData).format(pickedDate);
                             setState(() {
                               dateInputEnd.text = formattedDate;
-                              //endval1 = DateFormat('dd/MM/yyyy').parse(formattedDate);
-                              endval1 = DateFormat('MM/yyyy').parse(formattedDate);
+                              endval1 = DateFormat(formatoData).parse(formattedDate);
                             });
                           } else {}
                         },
-                      ),
+                      ),*/
+                      //metodoSelecaoFinal(periodicidade),
                       Padding(
                         padding: EdgeInsets.only(top: 20, bottom: 10),
                         child: Text(
-                          "Gráfico: $nomeSerie - $dropdownValueLocalidade - ${dropdownValueCategoria.toLowerCase()} - $formatoSerie",
+                          "Gráfico: $nomeSerie - $dropdownValueLocalidade - $dropdownValueCategoria - $formatoSerie",
                           style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                         ),
                       ),
@@ -772,9 +1229,13 @@ class _TelaDados extends State<TelaDados> {
                             primaryXAxis: CategoryAxis(
                               axisLabelFormatter: (AxisLabelRenderDetails args) {
                                 late String text;
-                                text = DateFormat('MM/yy').format(DateTime.parse(args.text)).toString();
+                                text = DateFormat(formatoDataGrafico).format(DateTime.parse(args.text)).toString();
                                 return ChartAxisLabel(text, args.textStyle);
                               },
+                            ),
+                            primaryYAxis: NumericAxis(
+                              //Formatting the labels in locale’s currency pattern with symbol.
+                                numberFormat: NumberFormat.decimalPattern('pt_BR'),
                             ),
                             series: <ChartSeries<serie_app, String>>[
                               // Renders line chart
@@ -782,7 +1243,7 @@ class _TelaDados extends State<TelaDados> {
                                   dataSource: filtrarDados(),
                                   xValueMapper: (serie_app variavel, _) => variavel.data.toString(),
                                   yValueMapper: (serie_app variavel, _) => variavel.valor,
-                                  dataLabelMapper: (serie_app data, _) => data.valor.toStringAsFixed(2).replaceAll(".", ","),
+                                  dataLabelMapper: (serie_app data, _) => f.format(data.valor),
                                   dataLabelSettings: DataLabelSettings(isVisible: true,
                                       textStyle: TextStyle(fontSize: 11)),
                                   markerSettings: MarkerSettings(isVisible: true)
@@ -861,7 +1322,7 @@ class _TelaDados extends State<TelaDados> {
                             cells: [
                               DataCell(
                                 Text(
-                                  DateFormat('MM/yyyy').format(e.data).toString(),
+                                  DateFormat(formatoData).format(e.data).toString(),
                                   style: TextStyle(
                                     fontStyle: FontStyle.italic,
                                   ),
@@ -869,7 +1330,8 @@ class _TelaDados extends State<TelaDados> {
                               ),
                               DataCell(
                                 Text(
-                                  e.valor.toStringAsFixed(2).replaceAll('.', ','),
+                                  //e.valor.toStringAsFixed(2).replaceAll('.', ','),
+                                  f.format(e.valor),
                                   style: TextStyle(
                                     fontStyle: FontStyle.italic,
                                   ),

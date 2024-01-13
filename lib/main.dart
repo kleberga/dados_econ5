@@ -2,6 +2,7 @@ import 'package:dados_economicos/variables_class.dart';
 import 'package:flutter/material.dart';
 import 'TelaDados.dart';
 import 'back_services.dart';
+import 'configuracao.dart';
 import 'database_helper.dart';
 import 'home.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -13,6 +14,7 @@ List<Localidades> listaLocalidades = [];
 List<Categorias> listaCategorias = [];
 var listaCombinada;
 
+
 void main() async {
   // inicializar uma instancia de WidgetsFlutterBinding. In the Flutter framework,
   // the WidgetsFlutterBinding class plays a crucial role. It is responsible for
@@ -23,16 +25,16 @@ void main() async {
   // platform it's running on.
   WidgetsFlutterBinding.ensureInitialized();
   // função para preencher a tabela SQL com os dados das séries
-  void preencherDados() async {
+/*  void preencherDados() async {
     for(var i = 0; i<listaSeries.length; i++){
       var numeroSerie = listaSeries[i].numero;
       var fido = Toggle_reg(id: numeroSerie, valorToggle: 0, dataCompara: '');
       await DatabaseHelper.insertToggle(fido);
+      progress = i/listaSeries.length;
     }
-
   }
   // chamar a função anterior
-  preencherDados();
+  preencherDados();*/
 
   NotificationService().initNotification();
   await Permission.notification.isDenied.then(
@@ -91,7 +93,8 @@ void main() async {
 
 
   runApp(MaterialApp(
-    home: Home(),
+    //home: Home(),
+    home: SplashScreen(),
     debugShowCheckedModeBanner: false,
   ));
 }
