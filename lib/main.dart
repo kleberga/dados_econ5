@@ -94,7 +94,7 @@ void main() async {
 
   runApp(MaterialApp(
     //home: Home(),
-    home: SplashScreen(),
+    home: Home(),
     debugShowCheckedModeBanner: false,
   ));
 }

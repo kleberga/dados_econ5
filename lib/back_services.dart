@@ -185,9 +185,9 @@ void onStart1(ServiceInstance service1) {
         }
 
 
-        //dataArmazenada = valorData?.firstWhere((element) => element.id==cod_serie).dataCompara;
+        dataArmazenada = valorData?.firstWhere((element) => element.id==cod_serie).dataCompara;
 
-        dataArmazenada = '2023-12-01 00:00:00.000';
+        //dataArmazenada = '2023-12-01 00:00:00.000';
 
         valorToggleDB = valorData?.firstWhere((element) => element.id==cod_serie).valorToggle;
 
@@ -201,142 +201,13 @@ void onStart1(ServiceInstance service1) {
         localidadeArmaz = await getStringFromLocalStorage("localidadeArmaz");
         categoriaArmaz = await getStringFromLocalStorage("categoriaArmaz");
 
-        print("dropdownValueMetrica: $dropdownValueMetrica");
-        if(dataArmazenada!=null && (ultimaData!=dataArmazenada)){
+        print("ultimaData: $ultimaData");
+        if(dataArmazenada!=null && ultimaData!=null && (ultimaData!=dataArmazenada)){
           NotificationService().showNotification(title: 'Atualização de série', body: "A série  '$nomeSerie - $metricaArmaz - $localidadeArmaz - $categoriaArmaz' foi atualizada!");
           await DatabaseHelper.insertToggle(Toggle_reg(id: cod_serie, valorToggle: valorToggleDB, dataCompara: ultimaData.toString()));
         }
       }
     }
-
-
-    //print("background service running $ultimaDataIPCA1");
-
-
-
-/*    getStringFromLocalStorage("meuNumero").then((String ret) {
-      print("ret: $ret");
-      numeroTeste = ret;
-    });*/
-    //print("url da serie: $urlSerie1");
-    //print("data final: $dataFinal1");
-
-/*    if(numeroSGS=="433"){
-      NotificationService().showNotification(title: 'Sample title', body: '$numeroSGS');
-    }*/
-
     });
-
 }
-
-//====================================================================================
-/*
-
-var service2;
-
-@pragma('vm:registry-point')
-Future<bool> onIosBackground2(ServiceInstance service2) async {
-  WidgetsFlutterBinding.ensureInitialized();
-  DartPluginRegistrant.ensureInitialized();
-  return true;
-}
-
-Future<void> initializeService2() async {
-  service2 = FlutterBackgroundService();
-  await service2.configure(iosConfiguration: IosConfiguration(
-    autoStart: true,
-    onForeground: onStart2,
-    onBackground: onIosBackground2,
-  ),
-      androidConfiguration: AndroidConfiguration(
-          onStart: onStart2,
-          isForegroundMode: true,
-          autoStart: true
-      )
-  );
-}
-
-
-List<serie_app> listaBack2 = [];
-var ultimaDataIPCA2;
-
-Future loadDataIBGE2() async {
-  String jsonString = await getJsonFromRestAPI2();
-  final jsonResponse = json.decode(jsonString);
-  final item = jsonResponse[0]['resultados'][0]['series'][0]['serie'];
-  for (var i = 0; i<item.keys.toList().length; i++){
-    var x = item.keys.toList()[i];
-    x = formatter1.format(int.parse(x.substring(4))) + "/" + formatter2.format(int.parse(x.substring(0, 4)));
-    var y = item.values.toList()[i].toString();
-    if(y!="..."){
-      listaBack2.add(
-          serie_app(
-              DateFormat('MM/yyyy').parse(x),
-              double.parse(y)
-          )
-      );
-    }
-  }
-  ultimaDataIPCA2 = listaBack2.last.data;
-}
-
-@pragma('vm:registry-point')
-void onStart2(ServiceInstance service2) {
-  DartPluginRegistrant.ensureInitialized();
-  if(service2 is AndroidServiceInstance){
-    service2.on("setAsForeground").listen((event) {
-      service2.setAsForegroundService();
-    });
-    service2.on("setAsBackground").listen((event) {
-      service2.setAsBackgroundService();
-    });
-  }
-  service2.on("stopService").listen((event) {
-    service2.stopSelf();
-  });
-
-  //NotificationService().initNotification();
-  Timer.periodic(const Duration(seconds: 1), (timer) async {
-    if(service2 is AndroidServiceInstance){
-      if(await service2.isForegroundService()){
-        service2.setForegroundNotificationInfo(title: "SCRIPT ACADEMY", content: "sub my channel");
-      }
-    }
-    // perfom some operation on background which is not noticeable to the user everytime
-    //print("background service running");
-    String? fonteSerie = await getStringFromLocalStorage("fonteSerieArmaz");
-
-    if(fonteSerie=="IBGE"){
-      loadDataIBGE2();
-    } else {
-      loadDataSGS2();
-    }
-
-    print("fonte: $fonte");
-
-    print("background service running $ultimaDataIPCA2");
-
-    String? urlSerie2= await getStringFromLocalStorage("urlSerieArmaz");
-    String? dataFinal2 = await getStringFromLocalStorage("dataFinal");
-
-*/
-/*    getStringFromLocalStorage("meuNumero").then((String ret) {
-      print("ret: $ret");
-      numeroTeste = ret;
-    });*//*
-
-    print("url da serie: $urlSerie2");
-    print("data final: $dataFinal2");
-
-*/
-/*    if(numeroSGS=="433"){
-      NotificationService().showNotification(title: 'Sample title', body: '$numeroSGS');
-    }*//*
-
-
-  });
-
-
-}
-*/
 
